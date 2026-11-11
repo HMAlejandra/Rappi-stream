@@ -1,0 +1,352 @@
+# ===================================================
+# docker-compose.yml — Rappi-Stream
+#
+# Levanta toda la infraestructura y los 8 microservicios.
+#
+# Uso:
+#   cp .env.example .env
+#   docker compose up -d
+#   docker compose ps
+#
+# Secciones:
+#   1. Infraestructura: PostgreSQL, RabbitMQ, Kafka KRaft
+#   2. Init container: crea topics en Kafka
+#   3. Microservicios: order_api ... dashboard_backend
+# ===================================================
+
+services:
+
+  # =================================================
+  # 1. POSTGRESQL 16
+  # Base de datos relacional compartida.
+  # init.sql se ejecuta automáticamente al primer arranque.
+  # =================================================
+  postgres:
+    image: postgres:16.2-alpine
+    container_name: rappi_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB:       ${POSTGRES_DB}
+      POSTGRES_USER:     ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./infrastructure/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rappi_net
+
+  # =================================================
+  # 2. RABBITMQ 3.13
+  # Broker de mensajería para comandos sincrónicos.
+  # Colas: new_orders_queue, client_sms_queue, driver_push_queue
+  # Exchange: notifications (tipo Topic)
+  # Panel de administración: http://localhost:15672
+  # =================================================
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: rappi_rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_DEFAULT_USER}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_DEFAULT_PASS}
+    ports:
+      - "${RABBITMQ_AMQP_PORT:-5672}:5672"
+      - "${RABBITMQ_MANAGEMENT_PORT:-15672}:15672"
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rappi_net
+
+  # =================================================
+  # 3. APACHE KAFKA 7.6 — MODO KRAFT (sin ZooKeeper)
+  #
+  # Juliana — Config KRaft crítica:
+  #
+  # KAFKA_NODE_ID=1
+  #   Identificador único de este nodo en el clúster.
+  #
+  # KAFKA_PROCESS_ROLES=broker,controller
+  #   Nodo combinado: actúa como broker (recibe/entrega
+  #   mensajes) Y como controller (gestiona metadatos del
+  #   clúster). En KRaft no hay ZooKeeper; el controller
+  #   lo hace todo internamente.
+  #
+  # KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
+  #   Lista de nodos que votan en el quórum de Raft.
+  #   Formato: nodeId@host:port.
+  #   Con un solo nodo (MVP local), solo votamos nosotros.
+  #
+  # KAFKA_LISTENERS
+  #   PLAINTEXT://0.0.0.0:9092  → broker, escucha todo
+  #   CONTROLLER://0.0.0.0:9093 → controller interno KRaft
+  #
+  # KAFKA_ADVERTISED_LISTENERS
+  #   PLAINTEXT://kafka:9092 → lo que los clientes dentro
+  #   de la red Docker deben usar para conectarse.
+  #   Los microservicios se conectan por nombre de servicio.
+  #
+  # KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+  #   Mapea cada nombre de listener a su protocolo.
+  #   CONTROLLER usa protocolo interno (no expuesto afuera).
+  #
+  # KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
+  #   Qué listener usan los brokers para comunicarse entre sí.
+  #
+  # KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
+  #   Listener dedicado al protocolo Raft interno.
+  #
+  # KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
+  #   MVP local — 1 sola réplica es suficiente.
+  #
+  # KAFKA_CLUSTER_ID
+  #   UUID base64 de 22 caracteres. Debe ser idéntico
+  #   en todos los nodos. Se inyecta desde .env para
+  #   garantizar arranques deterministas.
+  # =================================================
+  kafka:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: rappi_kafka
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: broker,controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: 1@kafka:9093
+      KAFKA_LISTENERS: PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://kafka:9092
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: PLAINTEXT:PLAINTEXT,CONTROLLER:PLAINTEXT
+      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
+      KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_AUTO_CREATE_TOPICS_ENABLE: "false"
+      KAFKA_LOG_DIRS: /var/lib/kafka/data
+      CLUSTER_ID: ${KAFKA_CLUSTER_ID}
+    ports:
+      - "${KAFKA_PORT:-9092}:9092"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test: ["CMD-SHELL", "kafka-topics --bootstrap-server kafka:9092 --list || exit 1"]
+      interval: 15s
+      timeout: 10s
+      retries: 10
+      start_period: 30s
+    networks:
+      - rappi_net
+
+  # =================================================
+  # 4. INIT CONTAINER — CREAR TOPICS KAFKA
+  # Se ejecuta una sola vez después de que Kafka esté
+  # healthy y crea el topic order_events (3 particiones).
+  # Usa el script infrastructure/kafka/create-topics.sh
+  # =================================================
+  kafka-init:
+    image: confluentinc/cp-kafka:7.6.0
+    container_name: rappi_kafka_init
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./infrastructure/kafka/create-topics.sh:/create-topics.sh:ro
+    entrypoint: ["/bin/bash", "/create-topics.sh"]
+    networks:
+      - rappi_net
+
+  # =================================================
+  # MICROSERVICIOS
+  # Todos dependen de que la infra esté healthy.
+  # Se construyen desde el Dockerfile de cada módulo.
+  # =================================================
+
+  order_api:
+    build:
+      context: .
+      dockerfile: order_api/Dockerfile
+    container_name: rappi_order_api
+    restart: unless-stopped
+    ports:
+      - "${ORDER_API_PORT:-8080}:8080"
+    environment:
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - rappi_net
+
+  order_processor:
+    build:
+      context: .
+      dockerfile: order_processor/Dockerfile
+    container_name: rappi_order_processor
+    restart: unless-stopped
+    ports:
+      - "${ORDER_PROCESSOR_PORT:-8081}:8081"
+    environment:
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    networks:
+      - rappi_net
+
+  driver_simulator:
+    build:
+      context: .
+      dockerfile: driver_simulator/Dockerfile
+    container_name: rappi_driver_simulator
+    restart: unless-stopped
+    ports:
+      - "${DRIVER_SIMULATOR_PORT:-8082}:8082"
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      kafka:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    networks:
+      - rappi_net
+
+  notification_router:
+    build:
+      context: .
+      dockerfile: notification_router/Dockerfile
+    container_name: rappi_notification_router
+    restart: unless-stopped
+    ports:
+      - "${NOTIFICATION_ROUTER_PORT:-8083}:8083"
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
+    depends_on:
+      kafka:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    networks:
+      - rappi_net
+
+  sms_worker:
+    build:
+      context: .
+      dockerfile: sms_worker/Dockerfile
+    container_name: rappi_sms_worker
+    restart: unless-stopped
+    ports:
+      - "${SMS_WORKER_PORT:-8084}:8084"
+    environment:
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - rappi_net
+
+  push_notification_worker:
+    build:
+      context: .
+      dockerfile: push_notification_worker/Dockerfile
+    container_name: rappi_push_worker
+    restart: unless-stopped
+    ports:
+      - "${PUSH_WORKER_PORT:-8085}:8085"
+    environment:
+      SPRING_RABBITMQ_HOST: rabbitmq
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - rappi_net
+
+  dashboard_aggregator:
+    build:
+      context: .
+      dockerfile: dashboard_aggregator/Dockerfile
+    container_name: rappi_dashboard_aggregator
+    restart: unless-stopped
+    ports:
+      - "${DASHBOARD_AGGREGATOR_PORT:-8086}:8086"
+    environment:
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
+      SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
+      SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      DASHBOARD_BACKEND_URL: http://dashboard_backend:8087
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+    networks:
+      - rappi_net
+
+  dashboard_backend:
+    build:
+      context: .
+      dockerfile: dashboard_backend/Dockerfile
+    container_name: rappi_dashboard_backend
+    restart: unless-stopped
+    ports:
+      - "${DASHBOARD_BACKEND_PORT:-8087}:8087"
+    depends_on:
+      - postgres
+    networks:
+      - rappi_net
+
+# =====================================================
+# VOLUMES — persistencia de datos entre reinicios
+# =====================================================
+volumes:
+  postgres_data:
+    driver: local
+  rabbitmq_data:
+    driver: local
+  kafka_data:
+    driver: local
+
+# =====================================================
+# NETWORK — red interna del proyecto
+# Todos los servicios se comunican por nombre de servicio
+# (ej: "kafka:9092", "postgres:5432", "rabbitmq:5672")
+# =====================================================
+networks:
+  rappi_net:
+    driver: bridge
