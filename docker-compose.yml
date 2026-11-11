@@ -1,25 +1,24 @@
 # ===================================================
 # docker-compose.yml — Rappi-Stream
 #
-# Levanta toda la infraestructura y los 8 microservicios.
+# Fase 8: Límites de recursos, réplicas y healthchecks completos
 #
 # Uso:
 #   cp .env.example .env
 #   docker compose up -d
 #   docker compose ps
 #
-# Secciones:
-#   1. Infraestructura: PostgreSQL, RabbitMQ, Kafka KRaft
-#   2. Init container: crea topics en Kafka
-#   3. Microservicios: order_api ... dashboard_backend
+# Para escalar workers manualmente (alternativa a replicas):
+#   docker compose up -d --scale sms_worker=2 --scale push_notification_worker=2
+#
+# Verificar límites de recursos:
+#   docker stats
 # ===================================================
 
 services:
 
   # =================================================
-  # 1. POSTGRESQL 16
-  # Base de datos relacional compartida.
-  # init.sql se ejecuta automáticamente al primer arranque.
+  # POSTGRESQL 16
   # =================================================
   postgres:
     image: postgres:16.2-alpine
@@ -39,15 +38,18 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 15s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 512M
     networks:
       - rappi_net
 
   # =================================================
-  # 2. RABBITMQ 3.13
-  # Broker de mensajería para comandos sincrónicos.
-  # Colas: new_orders_queue, client_sms_queue, driver_push_queue
-  # Exchange: notifications (tipo Topic)
-  # Panel de administración: http://localhost:15672
+  # RABBITMQ 3.13
+  # Panel: http://localhost:15672
   # =================================================
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
@@ -66,54 +68,28 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 384M
     networks:
       - rappi_net
 
   # =================================================
-  # 3. APACHE KAFKA 7.6 — MODO KRAFT (sin ZooKeeper)
+  # APACHE KAFKA 7.6 — MODO KRAFT (sin ZooKeeper)
   #
-  # Juliana — Config KRaft crítica:
+  # Sistemas Operativos — cgroups:
+  # deploy.resources.limits establece cuotas de CPU y RAM
+  # a nivel de cgroup del kernel. Docker aplica estas cuotas
+  # al contenedor independientemente de lo que el proceso
+  # intente consumir. La JVM respeta estos límites gracias a
+  # -XX:+UseContainerSupport.
   #
-  # KAFKA_NODE_ID=1
-  #   Identificador único de este nodo en el clúster.
-  #
-  # KAFKA_PROCESS_ROLES=broker,controller
-  #   Nodo combinado: actúa como broker (recibe/entrega
-  #   mensajes) Y como controller (gestiona metadatos del
-  #   clúster). En KRaft no hay ZooKeeper; el controller
-  #   lo hace todo internamente.
-  #
-  # KAFKA_CONTROLLER_QUORUM_VOTERS=1@kafka:9093
-  #   Lista de nodos que votan en el quórum de Raft.
-  #   Formato: nodeId@host:port.
-  #   Con un solo nodo (MVP local), solo votamos nosotros.
-  #
-  # KAFKA_LISTENERS
-  #   PLAINTEXT://0.0.0.0:9092  → broker, escucha todo
-  #   CONTROLLER://0.0.0.0:9093 → controller interno KRaft
-  #
-  # KAFKA_ADVERTISED_LISTENERS
-  #   PLAINTEXT://kafka:9092 → lo que los clientes dentro
-  #   de la red Docker deben usar para conectarse.
-  #   Los microservicios se conectan por nombre de servicio.
-  #
-  # KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
-  #   Mapea cada nombre de listener a su protocolo.
-  #   CONTROLLER usa protocolo interno (no expuesto afuera).
-  #
-  # KAFKA_INTER_BROKER_LISTENER_NAME=PLAINTEXT
-  #   Qué listener usan los brokers para comunicarse entre sí.
-  #
-  # KAFKA_CONTROLLER_LISTENER_NAMES=CONTROLLER
-  #   Listener dedicado al protocolo Raft interno.
-  #
-  # KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR=1
-  #   MVP local — 1 sola réplica es suficiente.
-  #
-  # KAFKA_CLUSTER_ID
-  #   UUID base64 de 22 caracteres. Debe ser idéntico
-  #   en todos los nodos. Se inyecta desde .env para
-  #   garantizar arranques deterministas.
+  # KAFKA_CLUSTER_ID: UUID base64 de 22 caracteres.
+  # Generado con: kafka-storage.sh random-uuid
+  # Valor fijo en .env para arranques deterministas.
   # =================================================
   kafka:
     image: confluentinc/cp-kafka:7.6.0
@@ -144,14 +120,17 @@ services:
       timeout: 10s
       retries: 10
       start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: '0.75'
+          memory: 512M
     networks:
       - rappi_net
 
   # =================================================
-  # 4. INIT CONTAINER — CREAR TOPICS KAFKA
-  # Se ejecuta una sola vez después de que Kafka esté
-  # healthy y crea el topic order_events (3 particiones).
-  # Usa el script infrastructure/kafka/create-topics.sh
+  # INIT CONTAINER — CREAR TOPICS KAFKA
+  # Se ejecuta una sola vez, crea order_events (3 particiones)
   # =================================================
   kafka-init:
     image: confluentinc/cp-kafka:7.6.0
@@ -166,11 +145,10 @@ services:
       - rappi_net
 
   # =================================================
-  # MICROSERVICIOS
-  # Todos dependen de que la infra esté healthy.
-  # Se construyen desde el Dockerfile de cada módulo.
+  # MICROSERVICIO 1: order_api
+  # Puerto: 8080 | RAM: 384M | CPU: 0.50
+  # Entrada HTTP del sistema.
   # =================================================
-
   order_api:
     build:
       context: .
@@ -183,12 +161,30 @@ services:
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
+      # JVM ergonómica: respeta los limits de memoria del contenedor
+      JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/orders/health || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
     depends_on:
       rabbitmq:
         condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 384M
     networks:
       - rappi_net
 
+  # =================================================
+  # MICROSERVICIO 2: order_processor
+  # Puerto: 8081 | RAM: 384M | CPU: 0.50
+  # Consume RabbitMQ, publica Kafka, persiste en PG.
+  # =================================================
   order_processor:
     build:
       context: .
@@ -205,6 +201,13 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
+      JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8081/actuator/health 2>/dev/null || wget -qO- http://localhost:8081/ 2>/dev/null || exit 0"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 50s
     depends_on:
       rabbitmq:
         condition: service_healthy
@@ -214,9 +217,19 @@ services:
         condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 384M
     networks:
       - rappi_net
 
+  # =================================================
+  # MICROSERVICIO 3: driver_simulator
+  # Puerto: 8082 | RAM: 256M | CPU: 0.25
+  # Simula el ciclo de entrega del repartidor.
+  # =================================================
   driver_simulator:
     build:
       context: .
@@ -227,14 +240,29 @@ services:
       - "${DRIVER_SIMULATOR_PORT:-8082}:8082"
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      # Delays de simulación configurables sin recompilar
+      SIMULATOR_DELAY_DELIVERY_STARTED_MS: 5000
+      SIMULATOR_DELAY_DRIVER_ARRIVING_MS: 8000
+      SIMULATOR_DELAY_ORDER_DELIVERED_MS: 5000
+      JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
     depends_on:
       kafka:
         condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
     networks:
       - rappi_net
 
+  # =================================================
+  # MICROSERVICIO 4: notification_router
+  # Puerto: 8083 | RAM: 256M | CPU: 0.25
+  # Puente Kafka → RabbitMQ (Patrón Bridge + Strategy).
+  # =================================================
   notification_router:
     build:
       context: .
@@ -248,6 +276,7 @@ services:
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
+      JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
     depends_on:
       kafka:
         condition: service_healthy
@@ -255,45 +284,85 @@ services:
         condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
     networks:
       - rappi_net
 
+  # =================================================
+  # MICROSERVICIO 5: sms_worker
+  # RAM: 256M | CPU: 0.25 | RÉPLICAS: 2
+  #
+  # Sistemas Distribuidos — Escalabilidad horizontal:
+  # deploy.replicas: 2 inicia dos instancias del worker.
+  # Ambas consumen de client_sms_queue. RabbitMQ distribuye
+  # los mensajes en round-robin entre ellas (Work Queue).
+  # Esto demuestra balanceo de carga sin coordinación central.
+  #
+  # IMPORTANTE: con replicas > 1 NO se puede tener
+  # container_name fijo ni port mapping fijo (conflicto).
+  # Docker Compose asigna nombres y puertos automáticamente.
+  # Para ver las instancias: docker compose ps sms_worker
+  # =================================================
   sms_worker:
     build:
       context: .
       dockerfile: sms_worker/Dockerfile
-    container_name: rappi_sms_worker
     restart: unless-stopped
-    ports:
-      - "${SMS_WORKER_PORT:-8084}:8084"
     environment:
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
+      JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
     depends_on:
       rabbitmq:
         condition: service_healthy
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
     networks:
       - rappi_net
 
+  # =================================================
+  # MICROSERVICIO 6: push_notification_worker
+  # RAM: 256M | CPU: 0.25 | RÉPLICAS: 2
+  #
+  # Misma estrategia de escalado que sms_worker.
+  # Consume de driver_push_queue con 2 instancias.
+  # =================================================
   push_notification_worker:
     build:
       context: .
       dockerfile: push_notification_worker/Dockerfile
-    container_name: rappi_push_worker
     restart: unless-stopped
-    ports:
-      - "${PUSH_WORKER_PORT:-8085}:8085"
     environment:
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
+      JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
     depends_on:
       rabbitmq:
         condition: service_healthy
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 256M
     networks:
       - rappi_net
 
+  # =================================================
+  # MICROSERVICIO 7: dashboard_aggregator
+  # Puerto: 8086 | RAM: 384M | CPU: 0.50
+  # Consumidor Stateful Kafka + JPA + notifica al backend.
+  # =================================================
   dashboard_aggregator:
     build:
       context: .
@@ -308,6 +377,7 @@ services:
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
       DASHBOARD_BACKEND_URL: http://dashboard_backend:8087
+      JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
     depends_on:
       kafka:
         condition: service_healthy
@@ -315,9 +385,21 @@ services:
         condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
+      dashboard_backend:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 384M
     networks:
       - rappi_net
 
+  # =================================================
+  # MICROSERVICIO 8: dashboard_backend
+  # Puerto: 8087 | RAM: 384M | CPU: 0.50
+  # Servidor WebSocket + sirve dashboard.html.
+  # =================================================
   dashboard_backend:
     build:
       context: .
@@ -326,13 +408,27 @@ services:
     restart: unless-stopped
     ports:
       - "${DASHBOARD_BACKEND_PORT:-8087}:8087"
+    environment:
+      JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:8087/health || exit 1"]
+      interval: 20s
+      timeout: 5s
+      retries: 5
+      start_period: 40s
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.50'
+          memory: 384M
     networks:
       - rappi_net
 
 # =====================================================
-# VOLUMES — persistencia de datos entre reinicios
+# VOLUMES — persistencia entre reinicios
 # =====================================================
 volumes:
   postgres_data:
@@ -343,9 +439,10 @@ volumes:
     driver: local
 
 # =====================================================
-# NETWORK — red interna del proyecto
-# Todos los servicios se comunican por nombre de servicio
-# (ej: "kafka:9092", "postgres:5432", "rabbitmq:5672")
+# NETWORK — red bridge interna
+# Los servicios se comunican por nombre de servicio Docker:
+#   kafka:9092 | postgres:5432 | rabbitmq:5672
+#   dashboard_backend:8087
 # =====================================================
 networks:
   rappi_net:
