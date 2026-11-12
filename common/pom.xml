@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
+         https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.rappistream</groupId>
+        <artifactId>rappi-stream-parent</artifactId>
+        <version>1.0.0</version>
+        <relativePath>../pom.xml</relativePath>
+    </parent>
+
+    <artifactId>common</artifactId>
+    <packaging>jar</packaging>
+    <name>common — Contratos Compartidos</name>
+    <description>
+        Records inmutables para comandos AMQP, eventos Kafka y DTOs WebSocket.
+        Enumeraciones de estados y tipos de evento.
+        Este módulo NO tiene dependencias de Spring Boot — es puro Java 17.
+        Todos los microservicios lo importan como dependencia.
+    </description>
+
+    <dependencies>
+        <!-- Jackson para que los records sean serializables a JSON -->
+        <dependency>
+            <groupId>com.fasterxml.jackson.core</groupId>
+            <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.fasterxml.jackson.datatype</groupId>
+            <artifactId>jackson-datatype-jsr310</artifactId>
+        </dependency>
+
+        <!-- JUnit 5 para las pruebas de los records (Fail-Fast) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-test</artifactId>
+            <scope>test</scope>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+            <!-- IMPORTANTE: common NO es una app Spring Boot.
+                 No usa spring-boot-maven-plugin para empaquetar.
+                 Se empaqueta como JAR estándar de biblioteca. -->
+        </plugins>
+    </build>
+
+</project>
