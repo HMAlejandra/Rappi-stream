@@ -34,7 +34,7 @@ public class DashboardBackendClient {
     private final String       backendUrl;
 
     public DashboardBackendClient(
-            @Value("${dashboard.backend.url:http://dashboard_backend:8087}") String backendUrl) {
+            @Value("${dashboard.backend.url}") String backendUrl) {
         this.restTemplate = new RestTemplate();
         this.backendUrl   = backendUrl;
     }

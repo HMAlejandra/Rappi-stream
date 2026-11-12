@@ -6,8 +6,7 @@
 <title>Rappi-Stream Delivery</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-<!-- Leaflet CSS -->
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<!-- sin Leaflet -->
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -172,16 +171,94 @@ tr.flash{animation:rowFlash 1.5s ease}
 .oli-st{font-size:10px;color:var(--muted)}
 .oli-ico{font-size:22px;flex-shrink:0}
 
-/* ── MAPA ── */
+/* ── PANEL ANIMACIÓN ENTREGA ── */
 .map-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);display:flex;flex-direction:column;overflow:hidden}
 .map-hdr{padding:12px 16px;background:var(--card2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
 .map-hdr h3{font-size:13px;font-weight:800}
 .map-eta{background:rgba(255,107,0,.15);border:1px solid rgba(255,107,0,.3);color:var(--orange);padding:4px 10px;border-radius:20px;font-size:11px;font-weight:800}
-#map{flex:1;min-height:0;border-radius:0 0 var(--radius) var(--radius)}
-.map-placeholder{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--muted)}
-.map-placeholder .mp-ico{font-size:60px}
-.map-placeholder p{font-size:14px;font-weight:700}
-.map-placeholder small{font-size:12px}
+
+/* Escena principal */
+.delivery-scene{flex:1;position:relative;overflow:hidden;background:linear-gradient(180deg,#080c14 0%,#0d1520 60%,#111820 100%);min-height:280px;display:flex;align-items:stretch}
+
+/* Cielo con estrellas */
+.sky-stars{position:absolute;inset:0;pointer-events:none}
+.star{position:absolute;border-radius:50%;background:#fff;animation:twinkle 2s ease-in-out infinite}
+@keyframes twinkle{0%,100%{opacity:.8}50%{opacity:.2}}
+
+/* Edificios */
+.scene-city{position:absolute;bottom:72px;left:0;right:0;display:flex;align-items:flex-end;gap:4px;padding:0 20px;pointer-events:none}
+.bld{background:linear-gradient(180deg,#1a2535,#111820);border:1px solid #1e2d40;border-bottom:none;border-radius:3px 3px 0 0;position:relative;flex-shrink:0}
+.bld-win{position:absolute;width:5px;height:5px;border-radius:1px;animation:winBlink 3s ease-in-out infinite}
+.bld-win.on{background:rgba(255,220,80,.7)}
+.bld-win.off{background:rgba(60,80,100,.4);animation:none}
+@keyframes winBlink{0%,100%{opacity:1}50%{opacity:.3}}
+
+/* Carretera */
+.scene-road{position:absolute;bottom:0;left:0;right:0;height:72px;background:linear-gradient(0deg,#191919 0%,#202020 100%)}
+.road-center-line{position:absolute;top:50%;left:0;right:0;height:3px;transform:translateY(-50%)}
+.road-dashes{width:100%;height:100%;background:repeating-linear-gradient(90deg,#FF9500 0,#FF9500 36px,transparent 36px,transparent 72px);animation:dashMove 0.4s linear infinite}
+@keyframes dashMove{from{transform:translateX(0)}to{transform:translateX(-72px)}}
+.road-edge-top{position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#FF6B00,#FF3B30,#FF6B00);opacity:.7}
+.road-edge-bot{position:absolute;bottom:0;left:0;right:0;height:3px;background:#FF6B00;opacity:.5}
+
+/* Moto */
+.moto-wrap{position:absolute;bottom:72px;transition:left 1.4s cubic-bezier(.4,0,.2,1)}
+.moto-wrap.riding{animation:bikeHop .22s ease-in-out infinite alternate}
+@keyframes bikeHop{from{transform:translateY(0) rotate(0deg)}to{transform:translateY(-4px) rotate(.8deg)}}
+
+/* Líneas de velocidad */
+.speed-lines{position:absolute;bottom:14px;display:flex;flex-direction:column;gap:5px;pointer-events:none;opacity:0;transition:opacity .3s;right:calc(100% - 14px)}
+.moto-wrap.riding .speed-lines{opacity:1}
+.sp{height:2px;border-radius:2px;background:linear-gradient(270deg,var(--orange),transparent);animation:spFly .35s linear infinite}
+.sp:nth-child(1){width:30px;animation-delay:.00s}
+.sp:nth-child(2){width:20px;animation-delay:.12s}
+.sp:nth-child(3){width:24px;animation-delay:.22s}
+@keyframes spFly{0%{opacity:.9;transform:scaleX(1)}100%{opacity:0;transform:scaleX(.3) translateX(-20px)}}
+
+/* Restaurante & Destino */
+.scene-rest,.scene-dest{position:absolute;bottom:72px;display:flex;flex-direction:column;align-items:center;gap:3px;transition:opacity .5s}
+.scene-rest{left:24px}
+.scene-dest{right:24px;opacity:0}
+.scene-dest.visible{opacity:1}
+.loc-icon{font-size:30px;filter:drop-shadow(0 2px 8px rgba(255,107,0,.6))}
+.loc-label{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;padding:2px 6px;border-radius:4px}
+.rest-label{color:var(--muted);background:rgba(255,255,255,.07)}
+.dest-label{color:var(--orange);background:rgba(255,107,0,.18)}
+
+/* Burbuja de estado superior */
+.scene-bubble{position:absolute;top:16px;left:50%;transform:translateX(-50%);background:rgba(26,30,40,.95);border:1px solid rgba(255,107,0,.25);border-radius:14px;padding:8px 20px;text-align:center;min-width:180px;backdrop-filter:blur(8px)}
+.sb-icon{font-size:28px;line-height:1}
+.sb-label{font-size:11px;font-weight:800;color:var(--orange);margin-top:3px}
+.sb-sub{font-size:10px;color:var(--muted);margin-top:1px}
+
+/* Chef (CREADO) */
+.chef-scene{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:linear-gradient(180deg,#080c14,#0d1520)}
+.chef-figure{font-size:90px;line-height:1;animation:chefCook .8s ease-in-out infinite alternate}
+@keyframes chefCook{from{transform:rotate(-6deg) translateY(0)}to{transform:rotate(6deg) translateY(-6px)}}
+.steam-row{display:flex;gap:10px;margin-top:-4px}
+.stm{width:4px;border-radius:3px;background:rgba(255,255,255,.2);animation:steamUp 1.4s ease-in-out infinite}
+.stm:nth-child(1){height:16px;animation-delay:.0s}
+.stm:nth-child(2){height:24px;animation-delay:.5s}
+.stm:nth-child(3){height:14px;animation-delay:.9s}
+@keyframes steamUp{0%,100%{transform:translateY(0) scaleX(1);opacity:.5}50%{transform:translateY(-12px) scaleX(1.6);opacity:.1}}
+.chef-label{font-size:14px;font-weight:800;color:var(--text)}
+.chef-sub{font-size:11px;color:var(--muted)}
+
+/* Entregado */
+.delivered-scene{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:linear-gradient(180deg,#080c14,#001a08)}
+.del-check{font-size:80px;animation:popIn .5s cubic-bezier(.4,0,.2,1) both}
+@keyframes popIn{0%{transform:scale(0) rotate(-15deg);opacity:0}70%{transform:scale(1.15) rotate(3deg)}100%{transform:scale(1) rotate(0);opacity:1}}
+.del-label{font-size:16px;font-weight:900;color:var(--green)}
+.del-sub{font-size:12px;color:var(--muted)}
+.confetti-wrap{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.cf{position:absolute;top:-12px;border-radius:2px;animation:cfFall linear infinite}
+@keyframes cfFall{from{transform:translateY(0) rotate(0deg)}to{transform:translateY(110vh) rotate(720deg)}}
+
+/* Placeholder vacío */
+.anim-placeholder{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--muted)}
+.anim-placeholder .ap-ico{font-size:56px}
+.anim-placeholder p{font-size:14px;font-weight:700}
+.anim-placeholder small{font-size:12px}
 
 /* ── REPARTIDORES ── */
 .drivers-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}
@@ -265,16 +342,11 @@ tr.flash{animation:rowFlash 1.5s ease}
 .search-dots::after{content:'';animation:dots 1.5s infinite}
 @keyframes dots{0%{content:''}33%{content:'.'}66%{content:'..'}100%{content:'...'}}
 
-/* Leaflet dark theme */
-.leaflet-container{background:#1a2a1a!important}
-.leaflet-tile{filter:invert(1) hue-rotate(180deg) brightness(0.85) saturate(1.2)}
-.leaflet-control-attribution{display:none}
-.leaflet-popup-content-wrapper{background:var(--card);color:var(--text);border:1px solid var(--border)}
-.leaflet-popup-tip{background:var(--card)}
+/* sin Leaflet */
 
 @media(max-width:900px){
   .tracking-layout{grid-template-columns:1fr;height:auto}
-  #map{height:360px}
+  .delivery-scene{min-height:280px}
 }
 @media(max-width:600px){
   .sidebar{width:52px}.main{margin-left:52px}
@@ -483,20 +555,113 @@ tr.flash{animation:rowFlash 1.5s ease}
           </div>
         </div>
 
-        <!-- Panel derecho: Mapa -->
+        <!-- Panel derecho: Animación de entrega -->
         <div class="map-panel">
           <div class="map-hdr">
-            <h3>🗺️ Mapa de seguimiento en tiempo real</h3>
+            <h3>🛵 Seguimiento en tiempo real</h3>
             <div class="map-eta" id="mapEta">— ETA</div>
           </div>
-          <!-- Mapa Leaflet — se inicializa en JS -->
-          <div id="map"></div>
-          <!-- Placeholder cuando no hay pedido -->
-          <div class="map-placeholder" id="mapPlaceholder">
-            <span class="mp-ico">🗺️</span>
-            <p>Mapa de entrega</p>
-            <small>Selecciona un pedido activo para ver el seguimiento</small>
+
+          <!-- Escena animada -->
+          <div class="delivery-scene" id="deliveryScene" style="display:none">
+
+            <!-- Estrellas de fondo -->
+            <div class="sky-stars" id="skyStars"></div>
+
+            <!-- Edificios ciudad -->
+            <div class="scene-city" id="sceneCity"></div>
+
+            <!-- Carretera -->
+            <div class="scene-road">
+              <div class="road-edge-top"></div>
+              <div class="road-center-line"><div class="road-dashes"></div></div>
+              <div class="road-edge-bot"></div>
+            </div>
+
+            <!-- Restaurante (origen) -->
+            <div class="scene-rest">
+              <span class="loc-icon">🍔</span>
+              <span class="loc-label rest-label">Restaurante</span>
+            </div>
+
+            <!-- Destino -->
+            <div class="scene-dest" id="sceneDest">
+              <span class="loc-icon">📍</span>
+              <span class="loc-label dest-label">Tu casa</span>
+            </div>
+
+            <!-- Moto -->
+            <div class="moto-wrap" id="motoWrap">
+              <!-- SVG moto de perfil -->
+              <svg class="moto-svg" viewBox="0 0 110 68" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Rueda trasera -->
+                <circle class="wheel" cx="22" cy="52" r="14" stroke="#FF6B00" stroke-width="4" fill="#1a1a1a"/>
+                <circle cx="22" cy="52" r="6" fill="#FF6B00" opacity=".5"/>
+                <!-- Rueda delantera -->
+                <circle class="wheel" cx="85" cy="52" r="14" stroke="#FF6B00" stroke-width="4" fill="#1a1a1a"/>
+                <circle cx="85" cy="52" r="6" fill="#FF6B00" opacity=".5"/>
+                <!-- Chasis -->
+                <path d="M22 52 L38 28 L62 24 L85 36 L85 52" stroke="#FF9500" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                <!-- Motor / cuerpo -->
+                <path d="M36 28 L60 24 L72 36 L50 42 Z" fill="#FF6B00" opacity=".9"/>
+                <!-- Manillar -->
+                <path d="M80 24 L85 36" stroke="#ccc" stroke-width="2.5" stroke-linecap="round"/>
+                <line x1="75" y1="22" x2="88" y2="22" stroke="#aaa" stroke-width="2" stroke-linecap="round"/>
+                <!-- Asiento -->
+                <path d="M44 24 Q54 20 65 22" stroke="#888" stroke-width="3" stroke-linecap="round" fill="none"/>
+                <!-- Repartidor (casco + cuerpo) -->
+                <circle cx="58" cy="14" r="9" fill="#FF9500"/>
+                <path d="M50 14 Q52 8 58 7 Q64 8 66 14 Z" fill="#FF3B30"/>
+                <!-- Visor casco -->
+                <path d="M52 14 Q55 11 64 13" stroke="#87CEEB" stroke-width="2" stroke-linecap="round" fill="none"/>
+                <!-- Escudo / bolsa delivery -->
+                <rect x="34" y="30" width="14" height="10" rx="2" fill="#FF3B30" opacity=".8"/>
+                <text x="37" y="39" font-size="7" fill="white" font-weight="bold">🍔</text>
+                <!-- Escape / humo animado -->
+                <circle cx="14" cy="46" r="2" fill="#888" opacity=".5" class="exhaust"/>
+              </svg>
+              <!-- Líneas de velocidad (dentro del wrapper para posicionarlas relativas a la moto) -->
+              <div class="speed-lines">
+                <div class="sp"></div>
+                <div class="sp"></div>
+                <div class="sp"></div>
+              </div>
+            </div>
+
+            <!-- Burbuja de estado -->
+            <div class="scene-bubble" id="sceneBubble">
+              <div class="sb-icon" id="sbIcon">🛵</div>
+              <div class="sb-label" id="sbLabel">En camino</div>
+              <div class="sb-sub" id="sbSub">Tu pedido está en ruta</div>
+            </div>
+
+            <!-- Overlay Chef (CREADO) -->
+            <div class="chef-scene" id="chefScene" style="display:none">
+              <div class="chef-figure">👨‍🍳</div>
+              <div class="steam-row">
+                <div class="stm"></div><div class="stm"></div><div class="stm"></div>
+              </div>
+              <div class="chef-label" id="chefLabel">Preparando tu pedido</div>
+              <div class="chef-sub" id="chefSub">Tu comida estará lista pronto</div>
+            </div>
+
+            <!-- Overlay Entregado -->
+            <div class="delivered-scene" id="deliveredScene" style="display:none">
+              <div class="confetti-wrap" id="confettiWrap"></div>
+              <div class="del-check">🎉</div>
+              <div class="del-label">¡Pedido entregado!</div>
+              <div class="del-sub">¡Que lo disfrutes!</div>
+            </div>
+
+          </div><!-- /delivery-scene -->
+
+          <!-- Placeholder sin pedido -->
+          <div class="anim-placeholder" id="animPlaceholder">
+            <span class="ap-ico">🛵</span>
+            <p>Seguimiento de entrega</p>
+            <small>Selecciona un pedido activo para ver la animación</small>
           </div>
+
         </div>
       </div>
     </div>
@@ -513,8 +678,7 @@ tr.flash{animation:rowFlash 1.5s ease}
   </div><!-- /main -->
 </div><!-- /app -->
 
-<!-- Leaflet JS -->
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<!-- sin Leaflet -->
 <!-- STOMP sobre WebSocket nativo (sin SockJS) -->
 <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
 
@@ -561,15 +725,7 @@ const STEP_DEFS   = [
   {s:'ENTREGADO', ico:'✅', name:'Entregado',            desc:'¡Disfruta!'},
 ];
 
-/* Ruta simulada en Bogotá (latLng): restaurante → waypoints → destino */
-const RESTAURANT_LATLNG = [4.6760, -74.0485]; // Chapinero
-const WAYPOINTS_LATLNG  = [
-  [4.6755, -74.0480],[4.6748, -74.0470],[4.6740, -74.0460],
-  [4.6732, -74.0452],[4.6725, -74.0445],[4.6718, -74.0438],
-  [4.6710, -74.0430],[4.6702, -74.0422],[4.6695, -74.0415],
-];
-const DEST_LATLNG        = [4.6688, -74.0410]; // Destino
-const ROUTE_POINTS       = [RESTAURANT_LATLNG, ...WAYPOINTS_LATLNG];
+/* Las constantes de coordenadas Leaflet ya no se usan */
 
 /* ══════════════════════════════════════════════════
    ESTADO GLOBAL
@@ -580,16 +736,11 @@ let selectedId = null;
 let stompCli   = null;
 let selFood    = FOOD[0];
 
-// Mapa Leaflet
-let leafletMap      = null;
-let riderMarker     = null;
-let restaurantMarker= null;
-let destMarker      = null;
-let routeLine       = null;
-let riderAnimFrame  = null;
-let riderSegment    = 0;
-let riderT          = 0;
-let riderSpeed      = 0;
+// ── Variables animación (reemplazan Leaflet) ──
+let motoAnimFrame   = null;
+let motoPos         = 0;   // 0.0 → 1.0 progreso en la carretera
+let motoTarget      = 0;
+let motoSpeed       = 0;
 
 /* ══════════════════════════════════════════════════
    INIT
@@ -610,10 +761,8 @@ function goTab(btn, id) {
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.querySelectorAll(`[data-tab="${id}"]`).forEach(b => b.classList.add('active'));
   document.getElementById(id).classList.add('active');
-  // Inicializar mapa cuando se abre el tab de tracking
-  if (id === 'tab-track') {
-    setTimeout(initLeafletMap, 100);
-  }
+  // Sin mapa Leaflet — no necesita inicialización al abrir el tab
+  if (id === 'tab-track') { /* noop */ }
 }
 
 /* ══════════════════════════════════════════════════
@@ -638,6 +787,40 @@ function onConectado() {
       procesarDTO(dto);
     } catch(e) { console.error('WS parse error:', e); }
   });
+  // Hidratar estado inicial: cargar todos los pedidos existentes
+  // desde el aggregator para no llegar a cero al (re)conectar.
+  cargarEstadoInicial();
+}
+
+function cargarEstadoInicial() {
+  fetch('/api/orders/snapshot')
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(lista => {
+      if (!lista || !lista.length) return;
+      // Procesar en orden cronológico (lastUpdated ascendente)
+      // para que el estado final de cada pedido quede correcto.
+      lista
+        .slice()
+        .sort((a, b) => new Date(a.lastUpdated || 0) - new Date(b.lastUpdated || 0))
+        .forEach(dto => {
+          // Solo insertar si no tenemos ya una versión más reciente
+          // (puede que un evento WS ya haya llegado antes del fetch)
+          const existing = orders.get(dto.orderId);
+          if (!existing || new Date(dto.lastUpdated) >= new Date(existing.lastUpdated)) {
+            orders.set(dto.orderId, dto);
+          }
+        });
+      renderRecent();
+      renderOrders();
+      updateMetrics();
+      updateBadge();
+      renderTrackList();
+      evLog(`📦 Estado inicial cargado — ${lista.length} pedido${lista.length !== 1 ? 's' : ''}`, 'info');
+    })
+    .catch(err => {
+      // No es crítico: el sistema seguirá recibiendo actualizaciones por WS
+      evLog('⚠️ No se pudo cargar estado inicial: ' + err.message, 'error');
+    });
 }
 
 function onDesconectado() {
@@ -821,9 +1004,9 @@ function seleccionarPedido(orderId) {
   document.getElementById('trackDetail').style.display = 'block';
   document.getElementById('trackHint').textContent = '';
   updateTrackDetail(dto);
-  // Inicializar mapa y animar
+  // Inicializar escena animada
   setTimeout(() => {
-    initLeafletMap();
+    initDeliveryScene();
     iniciarAnimacionMapa(dto);
   }, 150);
 }
@@ -926,134 +1109,163 @@ function updateSteps(curStatus) {
 }
 
 /* ══════════════════════════════════════════════════
-   MAPA LEAFLET
+   ANIMACIÓN ENTREGA — reemplaza Leaflet
 ══════════════════════════════════════════════════ */
-function initLeafletMap() {
-  if(leafletMap) return; // Ya inicializado
-  const mapEl = document.getElementById('map');
-  const phEl  = document.getElementById('mapPlaceholder');
-  if(!mapEl || mapEl.clientHeight < 10) return; // Panel no visible aún
 
-  // Ocultar placeholder, mostrar mapa
-  phEl.style.display = 'none';
-  mapEl.style.display = 'block';
+/* Configuración por estado */
+const ANIM_CFG = {
+  CREADO:    {chef:true,  road:false, delivered:false, pos:0.00, icon:'👨‍🍳', label:'Preparando tu pedido',    sub:'Tu comida estará lista pronto'},
+  ASIGNADO:  {chef:false, road:true,  delivered:false, pos:0.08, icon:'🔍', label:'Repartidor en camino',       sub:'Ya viene hacia el restaurante'},
+  EN_CAMINO: {chef:false, road:true,  delivered:false, pos:0.42, icon:'🛵', label:'¡Tu pedido va en camino!',   sub:'El repartidor está en ruta'},
+  LLEGANDO:  {chef:false, road:true,  delivered:false, pos:0.78, icon:'📍', label:'¡Ya casi llega!',            sub:'El repartidor está muy cerca'},
+  ENTREGADO: {chef:false, road:false, delivered:true,  pos:1.00, icon:'🎉', label:'¡Pedido entregado!',         sub:'¡Que lo disfrutes!'},
+};
 
-  leafletMap = L.map('map', {
-    center: [4.6730, -74.0450],
-    zoom: 15,
-    zoomControl: true,
-    attributionControl: false,
-  });
-
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-    maxZoom: 19,
-  }).addTo(leafletMap);
-
-  // Marcador restaurante
-  restaurantMarker = L.marker(RESTAURANT_LATLNG, {
-    icon: L.divIcon({
-      className:'',
-      html:'<div style="font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))">🍔</div>',
-      iconSize:[32,32], iconAnchor:[16,16]
-    })
-  }).addTo(leafletMap).bindPopup('<strong>Restaurante</strong><br>Rappi-Stream Delivery');
-
-  // Marcador destino (oculto inicialmente)
-  destMarker = L.marker(DEST_LATLNG, {
-    icon: L.divIcon({
-      className:'',
-      html:'<div style="font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5))">📍</div>',
-      iconSize:[32,32], iconAnchor:[16,32]
-    }),
-    opacity: 0
-  }).addTo(leafletMap).bindPopup('<strong>Destino de entrega</strong>');
-
-  // Marcador rider (oculto inicialmente)
-  riderMarker = L.marker(RESTAURANT_LATLNG, {
-    icon: L.divIcon({
-      className:'',
-      html:'<div style="font-size:28px;filter:drop-shadow(0 2px 4px rgba(0,0,0,.5));animation:riderGo 0.4s infinite">🛵</div>',
-      iconSize:[32,32], iconAnchor:[16,16]
-    }),
-    opacity: 0
-  }).addTo(leafletMap);
-
-  // Línea de ruta
-  routeLine = L.polyline(ROUTE_POINTS.concat([DEST_LATLNG]), {
-    color: '#FF6B00',
-    weight: 3,
-    opacity: 0,
-    dashArray: '8, 6',
-  }).addTo(leafletMap);
+function initDeliveryScene() {
+  // Generar estrellas una sola vez
+  const sky = document.getElementById('skyStars');
+  if (sky && !sky.dataset.built) {
+    sky.dataset.built = '1';
+    for (let i = 0; i < 40; i++) {
+      const s = document.createElement('div');
+      s.className = 'star';
+      const size = Math.random() * 2.5 + 0.5;
+      s.style.cssText = `width:${size}px;height:${size}px;top:${Math.random()*65}%;left:${Math.random()*100}%;animation-delay:${Math.random()*3}s;animation-duration:${1.5+Math.random()*2}s`;
+      sky.appendChild(s);
+    }
+  }
+  // Generar edificios una sola vez
+  const city = document.getElementById('sceneCity');
+  if (city && !city.dataset.built) {
+    city.dataset.built = '1';
+    const bldDefs = [
+      {w:28,h:60},{w:22,h:80},{w:36,h:50},{w:20,h:95},{w:30,h:65},
+      {w:24,h:45},{w:40,h:70},{w:18,h:55},{w:32,h:88},{w:26,h:48},
+      {w:22,h:72},{w:38,h:58},{w:20,h:82},{w:28,h:42},{w:34,h:65},
+    ];
+    city.innerHTML = bldDefs.map(b => {
+      const wins = [];
+      for (let r = 0; r < Math.floor(b.h/18); r++) {
+        for (let c = 0; c < Math.floor(b.w/12); c++) {
+          const on = Math.random() > 0.4;
+          wins.push(`<div class="bld-win ${on?'on':'off'}" style="left:${5+c*11}px;top:${8+r*17}px;animation-delay:${Math.random()*4}s"></div>`);
+        }
+      }
+      return `<div class="bld" style="width:${b.w}px;height:${b.h}px">${wins.join('')}</div>`;
+    }).join('');
+  }
 }
 
 function iniciarAnimacionMapa(dto) {
-  if(!leafletMap) return;
+  const cfg = ANIM_CFG[dto.status];
+  if (!cfg) return;
 
-  // Parar animación anterior
-  if(riderAnimFrame) cancelAnimationFrame(riderAnimFrame);
+  // Mostrar escena, ocultar placeholder
+  document.getElementById('deliveryScene').style.display = 'flex';
+  document.getElementById('animPlaceholder').style.display = 'none';
 
-  const status = dto.status;
+  const chefEl      = document.getElementById('chefScene');
+  const delivEl     = document.getElementById('deliveredScene');
+  const motoWrap    = document.getElementById('motoWrap');
+  const sceneDest   = document.getElementById('sceneDest');
+  const sceneBubble = document.getElementById('sceneBubble');
 
-  // Mostrar marcadores y ruta
-  destMarker.setOpacity(1);
-  riderMarker.setOpacity(1);
-  routeLine.setStyle({opacity: 0.6});
+  // ── Burbuja de estado ──
+  document.getElementById('sbIcon').textContent  = cfg.icon;
+  document.getElementById('sbLabel').textContent = cfg.label;
+  document.getElementById('sbSub').textContent   = cfg.sub;
 
-  // Ajustar vista del mapa
-  const bounds = L.latLngBounds([RESTAURANT_LATLNG, DEST_LATLNG]);
-  leafletMap.fitBounds(bounds, {padding:[30,30]});
-
-  // Si entregado → poner rider en destino
-  if(status === 'ENTREGADO') {
-    riderMarker.setLatLng(DEST_LATLNG);
+  // ── CREADO: mostrar chef ──
+  if (cfg.chef) {
+    chefEl.style.display   = 'flex';
+    delivEl.style.display  = 'none';
+    motoWrap.style.display = 'none';
+    sceneBubble.style.display = 'none';
+    document.getElementById('chefLabel').textContent = cfg.label;
+    document.getElementById('chefSub').textContent   = cfg.sub;
     return;
   }
-  if(status === 'CREADO') {
-    riderMarker.setLatLng(RESTAURANT_LATLNG);
+
+  // ── ENTREGADO: confetti ──
+  if (cfg.delivered) {
+    chefEl.style.display   = 'none';
+    delivEl.style.display  = 'flex';
+    motoWrap.style.display = 'none';
+    sceneBubble.style.display = 'none';
+    generarConfetti();
     return;
   }
 
-  // Velocidad según estado
-  const speeds = {ASIGNADO:0.0005, EN_CAMINO:0.002, LLEGANDO:0.004};
-  riderSpeed = speeds[status] || 0.001;
+  // ── Estados con moto en carretera ──
+  chefEl.style.display   = 'none';
+  delivEl.style.display  = 'none';
+  motoWrap.style.display = 'block';
+  sceneBubble.style.display = 'block';
 
-  // Punto de inicio según estado
-  riderSegment = status === 'LLEGANDO'
-    ? Math.floor(ROUTE_POINTS.length * 0.6)
-    : status === 'EN_CAMINO'
-    ? Math.floor(ROUTE_POINTS.length * 0.1)
-    : 0;
-  riderT = 0;
+  // Destino visible desde EN_CAMINO
+  sceneDest.classList.toggle('visible', cfg.pos > 0.3);
 
-  const allPoints = [...ROUTE_POINTS, DEST_LATLNG];
+  // Parar loop anterior
+  if (motoAnimFrame) cancelAnimationFrame(motoAnimFrame);
 
-  function animLoop() {
-    riderT += riderSpeed;
-    if(riderT >= 1) {
-      riderT = 0;
-      riderSegment++;
-      if(riderSegment >= allPoints.length - 1) {
-        riderMarker.setLatLng(DEST_LATLNG);
-        return;
-      }
-    }
-    const from = allPoints[riderSegment];
-    const to   = allPoints[riderSegment + 1] || DEST_LATLNG;
-    const lat  = from[0] + (to[0]-from[0]) * riderT;
-    const lng  = from[1] + (to[1]-from[1]) * riderT;
-    riderMarker.setLatLng([lat, lng]);
-    riderAnimFrame = requestAnimationFrame(animLoop);
+  motoTarget = cfg.pos;
+  motoSpeed  = dto.status === 'LLEGANDO' ? 0.004 : dto.status === 'EN_CAMINO' ? 0.0018 : 0.0006;
+
+  // Ajustar posición si se retrocede (ej: recarga con estado anterior)
+  if (motoPos > cfg.pos + 0.15) motoPos = Math.max(0, cfg.pos - 0.05);
+
+  motoWrap.classList.add('riding');
+  correrMoto();
+}
+
+function correrMoto() {
+  const scene   = document.getElementById('deliveryScene');
+  const motoWrap = document.getElementById('motoWrap');
+  if (!scene || !motoWrap) return;
+
+  const sceneW  = scene.clientWidth  || 600;
+  const motoW   = 110; // ancho SVG moto en px
+  const margin  = 90;  // margen para los íconos de origen/destino
+  const roadW   = sceneW - margin * 2 - motoW;
+
+  if (motoPos < motoTarget) {
+    motoPos = Math.min(motoTarget, motoPos + motoSpeed);
   }
-  riderAnimFrame = requestAnimationFrame(animLoop);
+
+  const leftPx = margin + motoPos * roadW;
+  motoWrap.style.left = leftPx + 'px';
+
+  if (motoPos < motoTarget - 0.001) {
+    motoAnimFrame = requestAnimationFrame(correrMoto);
+  } else {
+    motoWrap.classList.remove('riding');
+  }
 }
 
 function updateRiderSpeed(status) {
-  const speeds = {ASIGNADO:0.0005, EN_CAMINO:0.002, LLEGANDO:0.005};
-  if(speeds[status]) riderSpeed = speeds[status];
-  if(status === 'ENTREGADO' && riderMarker) {
-    if(riderAnimFrame) cancelAnimationFrame(riderAnimFrame);
-    riderMarker.setLatLng(DEST_LATLNG);
+  // Mantiene la API que llaman procesarDTO y updateTrackDetail
+  const cfg = ANIM_CFG[status];
+  if (!cfg) return;
+  if (cfg.chef || cfg.delivered) return;
+  const speeds = {ASIGNADO:0.0006, EN_CAMINO:0.0018, LLEGANDO:0.004};
+  if (speeds[status]) {
+    motoSpeed  = speeds[status];
+    motoTarget = cfg.pos;
+    if (!motoAnimFrame) correrMoto();
+  }
+}
+
+function generarConfetti() {
+  const wrap = document.getElementById('confettiWrap');
+  if (!wrap || wrap.dataset.built) return;
+  wrap.dataset.built = '1';
+  const colors = ['#FF6B00','#FF3B30','#FFCC00','#34C759','#007AFF','#AF52DE','#FF2D55'];
+  for (let i = 0; i < 50; i++) {
+    const c  = document.createElement('div');
+    c.className = 'cf';
+    const size = 6 + Math.random() * 8;
+    c.style.cssText = `left:${Math.random()*100}%;width:${size}px;height:${size}px;background:${colors[Math.floor(Math.random()*colors.length)]};animation-duration:${2+Math.random()*3}s;animation-delay:${Math.random()*2}s`;
+    wrap.appendChild(c);
   }
 }
 

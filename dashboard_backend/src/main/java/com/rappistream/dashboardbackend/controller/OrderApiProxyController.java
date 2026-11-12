@@ -17,7 +17,7 @@ public class OrderApiProxyController {
 
     private static final Logger log = LoggerFactory.getLogger(OrderApiProxyController.class);
 
-    @Value("${order.api.url:http://order_api:8080}")
+    @Value("${order.api.url}")
     private String orderApiUrl;
 
     private final RestTemplate restTemplate = new RestTemplate();
