@@ -179,7 +179,9 @@ services:
           cpus: '0.50'
           memory: 384M
     networks:
-      - rappi_net
+      rappi_net:
+        aliases:
+          - orderapi
 
   # =================================================
   # MICROSERVICIO 2: order_processor
