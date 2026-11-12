@@ -48,11 +48,15 @@ public class DashboardBackendClient {
     public void notificarActualizacion(OrderStatusDTO dto) {
         try {
             String url = backendUrl + "/internal/update";
-            ResponseEntity<Void> response = restTemplate.postForEntity(url, dto, Void.class);
+            // Usar HttpEntity con Content-Type explícito para evitar problemas de serialización
+            org.springframework.http.HttpHeaders headers = new org.springframework.http.HttpHeaders();
+            headers.setContentType(org.springframework.http.MediaType.APPLICATION_JSON);
+            org.springframework.http.HttpEntity<OrderStatusDTO> entity =
+                    new org.springframework.http.HttpEntity<>(dto, headers);
+            ResponseEntity<Void> response = restTemplate.postForEntity(url, entity, Void.class);
             log.debug("[dashboard_aggregator] Notificación enviada al backend — orderId={} status={}",
                     dto.orderId(), response.getStatusCode());
         } catch (RestClientException e) {
-            // Dashboard backend no disponible — no es crítico para el flujo de eventos
             log.warn("[dashboard_aggregator] No se pudo notificar al dashboard_backend — orderId={}: {}",
                     dto.orderId(), e.getMessage());
         }

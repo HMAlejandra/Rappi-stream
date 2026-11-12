@@ -1,7 +1,7 @@
 # ===================================================
-# docker-compose.yml — Rappi-Stream
+# docker-compose.yml â€” Rappi-Stream
 #
-# Fase 8: Límites de recursos, réplicas y healthchecks completos
+# Fase 8: LÃ­mites de recursos, rÃ©plicas y healthchecks completos
 #
 # Uso:
 #   cp .env.example .env
@@ -11,7 +11,7 @@
 # Para escalar workers manualmente (alternativa a replicas):
 #   docker compose up -d --scale sms_worker=2 --scale push_notification_worker=2
 #
-# Verificar límites de recursos:
+# Verificar lÃ­mites de recursos:
 #   docker stats
 # ===================================================
 
@@ -78,13 +78,13 @@ services:
       - rappi_net
 
   # =================================================
-  # APACHE KAFKA 7.6 — MODO KRAFT (sin ZooKeeper)
+  # APACHE KAFKA 7.6 â€” MODO KRAFT (sin ZooKeeper)
   #
-  # Sistemas Operativos — cgroups:
+  # Sistemas Operativos â€” cgroups:
   # deploy.resources.limits establece cuotas de CPU y RAM
   # a nivel de cgroup del kernel. Docker aplica estas cuotas
   # al contenedor independientemente de lo que el proceso
-  # intente consumir. La JVM respeta estos límites gracias a
+  # intente consumir. La JVM respeta estos lÃ­mites gracias a
   # -XX:+UseContainerSupport.
   #
   # KAFKA_CLUSTER_ID: UUID base64 de 22 caracteres.
@@ -129,7 +129,7 @@ services:
       - rappi_net
 
   # =================================================
-  # INIT CONTAINER — CREAR TOPICS KAFKA
+  # INIT CONTAINER â€” CREAR TOPICS KAFKA
   # Se ejecuta una sola vez, crea order_events (3 particiones)
   # =================================================
   kafka-init:
@@ -162,7 +162,7 @@ services:
       SPRING_RABBITMQ_HOST: rabbitmq
       SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER}
       SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
-      # JVM ergonómica: respeta los limits de memoria del contenedor
+      # JVM ergonÃ³mica: respeta los limits de memoria del contenedor
       JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8080/api/orders/health || exit 1"]
@@ -243,7 +243,7 @@ services:
       - "${DRIVER_SIMULATOR_PORT:-8082}:8082"
     environment:
       SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
-      # Delays de simulación configurables sin recompilar
+      # Delays de simulaciÃ³n configurables sin recompilar
       SIMULATOR_DELAY_DELIVERY_STARTED_MS: 5000
       SIMULATOR_DELAY_DRIVER_ARRIVING_MS: 8000
       SIMULATOR_DELAY_ORDER_DELIVERED_MS: 5000
@@ -264,7 +264,7 @@ services:
   # =================================================
   # MICROSERVICIO 4: notification_router
   # Puerto: 8083 | RAM: 256M | CPU: 0.25
-  # Puente Kafka → RabbitMQ (Patrón Bridge + Strategy).
+  # Puente Kafka â†’ RabbitMQ (PatrÃ³n Bridge + Strategy).
   # =================================================
   notification_router:
     build:
@@ -297,17 +297,17 @@ services:
 
   # =================================================
   # MICROSERVICIO 5: sms_worker
-  # RAM: 256M | CPU: 0.25 | RÉPLICAS: 2
+  # RAM: 256M | CPU: 0.25 | RÃ‰PLICAS: 2
   #
-  # Sistemas Distribuidos — Escalabilidad horizontal:
+  # Sistemas Distribuidos â€” Escalabilidad horizontal:
   # deploy.replicas: 2 inicia dos instancias del worker.
   # Ambas consumen de client_sms_queue. RabbitMQ distribuye
   # los mensajes en round-robin entre ellas (Work Queue).
-  # Esto demuestra balanceo de carga sin coordinación central.
+  # Esto demuestra balanceo de carga sin coordinaciÃ³n central.
   #
   # IMPORTANTE: con replicas > 1 NO se puede tener
   # container_name fijo ni port mapping fijo (conflicto).
-  # Docker Compose asigna nombres y puertos automáticamente.
+  # Docker Compose asigna nombres y puertos automÃ¡ticamente.
   # Para ver las instancias: docker compose ps sms_worker
   # =================================================
   sms_worker:
@@ -334,7 +334,7 @@ services:
 
   # =================================================
   # MICROSERVICIO 6: push_notification_worker
-  # RAM: 256M | CPU: 0.25 | RÉPLICAS: 2
+  # RAM: 256M | CPU: 0.25 | RÃ‰PLICAS: 2
   #
   # Misma estrategia de escalado que sms_worker.
   # Consume de driver_push_queue con 2 instancias.
@@ -379,7 +379,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-      DASHBOARD_BACKEND_URL: http://dashboard_backend:8087
+      DASHBOARD_BACKEND_URL: http://dashboardbackend:8087
       JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
     depends_on:
       kafka:
@@ -428,10 +428,12 @@ services:
           cpus: '0.50'
           memory: 384M
     networks:
-      - rappi_net
+      rappi_net:
+        aliases:
+          - dashboardbackend
 
 # =====================================================
-# VOLUMES — persistencia entre reinicios
+# VOLUMES â€” persistencia entre reinicios
 # =====================================================
 volumes:
   postgres_data:
@@ -442,7 +444,7 @@ volumes:
     driver: local
 
 # =====================================================
-# NETWORK — red bridge interna
+# NETWORK â€” red bridge interna
 # Los servicios se comunican por nombre de servicio Docker:
 #   kafka:9092 | postgres:5432 | rabbitmq:5672
 #   dashboard_backend:8087

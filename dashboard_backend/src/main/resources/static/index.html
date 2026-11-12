@@ -1168,8 +1168,7 @@ tr.flash{animation:rowFlash 1.8s ease;}
   </div><!-- /main-wrap -->
 </div><!-- /app-layout -->
 
-<!-- SockJS + STOMP -->
-<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<!-- STOMP sobre WebSocket nativo — sin SockJS (evita Permissions Policy violation) -->
 <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
 
 <script>
@@ -1270,12 +1269,15 @@ function switchTab(btn, tabId) {
 }
 
 // ════════════════════════════════════════════════════
-// WEBSOCKET
+// WEBSOCKET — nativo, sin SockJS
 // ════════════════════════════════════════════════════
 function conectarWS() {
-  const socket = new SockJS('/ws');
+  // Usar ws:// nativo — mismo host/puerto que sirve el HTML
+  const proto = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const url   = proto + '//' + location.host + '/ws';
+  const socket = new WebSocket(url);
   stompClient  = Stomp.over(socket);
-  stompClient.debug = null;
+  stompClient.debug = null; // silenciar logs STOMP en consola
   stompClient.connect({}, onWsConectado, onWsDesconectado);
 }
 
@@ -1283,15 +1285,21 @@ function onWsConectado() {
   setWsDot(true);
   logEvento('🟢 Conectado al servidor WebSocket', 'success');
   stompClient.subscribe('/topic/orders', msg => {
-    try { procesarDTO(JSON.parse(msg.body)); }
-    catch(e){ console.error(e); }
+    try {
+      const dto = JSON.parse(msg.body);
+      // Cerrar overlay de búsqueda cuando llega ASIGNADO
+      if (dto.status === 'ASIGNADO') {
+        cerrarBuscandoRepartidor();
+      }
+      procesarDTO(dto);
+    } catch(e){ console.error('WS parse error:', e); }
   });
 }
 
 function onWsDesconectado() {
   setWsDot(false);
-  logEvento('🔴 Desconectado. Reconectando en 5s...', 'error');
-  setTimeout(conectarWS, 5000);
+  logEvento('🔴 Desconectado. Reconectando en 4s...', 'error');
+  setTimeout(conectarWS, 4000);
 }
 
 function setWsDot(on) {
