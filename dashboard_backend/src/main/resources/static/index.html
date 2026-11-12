@@ -1176,23 +1176,25 @@ tr.flash{animation:rowFlash 1.8s ease;}
 // ════════════════════════════════════════════════════
 // DATOS
 // ════════════════════════════════════════════════════
+// Imágenes: sólo intentar cargar si el archivo fue subido
+// Para activar una imagen, cambia `available: false` a `true` y coloca el archivo
 const FOOD_CATALOG = [
-  { key:'hamburguesa', name:'Hamburguesa Doble', price:'$18.900', emoji:'🍔', img:'public/img/food/hamburguesa.jpg' },
-  { key:'tacos',       name:'Tacos x3',          price:'$14.500', emoji:'🌮', img:'public/img/food/tacos.jpg' },
-  { key:'papas',       name:'Papas Fritas',       price:'$8.900',  emoji:'🍟', img:'public/img/food/papas.jpg' },
-  { key:'pizza',       name:'Pizza Familiar',     price:'$32.000', emoji:'🍕', img:'public/img/food/pizza.jpg' },
-  { key:'hotdog',      name:'Hot Dog Especial',   price:'$12.500', emoji:'🌭', img:'public/img/food/hotdog.jpg' },
-  { key:'alitas',      name:'Alitas BBQ x10',     price:'$22.000', emoji:'🍗', img:'public/img/food/alitas.jpg' },
-  { key:'nuggets',     name:'Nuggets x10',        price:'$15.900', emoji:'🍗', img:'public/img/food/nuggets.jpg' },
-  { key:'burrito',     name:'Burrito Supremo',    price:'$16.500', emoji:'🌯', img:'public/img/food/burrito.jpg' },
+  { key:'hamburguesa', name:'Hamburguesa Doble', price:'$18.900', emoji:'🍔', img:'public/img/food/hamburguesa.jpg', available:false },
+  { key:'tacos',       name:'Tacos x3',          price:'$14.500', emoji:'🌮', img:'public/img/food/tacos.jpg',       available:false },
+  { key:'papas',       name:'Papas Fritas',       price:'$8.900',  emoji:'🍟', img:'public/img/food/papas.jpg',       available:false },
+  { key:'pizza',       name:'Pizza Familiar',     price:'$32.000', emoji:'🍕', img:'public/img/food/pizza.jpg',       available:false },
+  { key:'hotdog',      name:'Hot Dog Especial',   price:'$12.500', emoji:'🌭', img:'public/img/food/hotdog.jpg',      available:false },
+  { key:'alitas',      name:'Alitas BBQ x10',     price:'$22.000', emoji:'🍗', img:'public/img/food/alitas.jpg',      available:false },
+  { key:'nuggets',     name:'Nuggets x10',        price:'$15.900', emoji:'🍗', img:'public/img/food/nuggets.jpg',     available:false },
+  { key:'burrito',     name:'Burrito Supremo',    price:'$16.500', emoji:'🌯', img:'public/img/food/burrito.jpg',     available:false },
 ];
 
 const DRIVERS_DATA = [
-  { id:'D-001', name:'Carlos Mendoza',   img:'public/img/drivers/D-001.jpg', emoji:'👨' },
-  { id:'D-002', name:'Laura Rodríguez',  img:'public/img/drivers/D-002.jpg', emoji:'👩' },
-  { id:'D-003', name:'Andrés Torres',    img:'public/img/drivers/D-003.jpg', emoji:'👨' },
-  { id:'D-004', name:'Valentina Gómez',  img:'public/img/drivers/D-004.jpg', emoji:'👩' },
-  { id:'D-005', name:'Miguel Herrera',   img:'public/img/drivers/D-005.jpg', emoji:'👨' },
+  { id:'D-001', name:'Carlos Mendoza',   img:'public/img/drivers/D-001.jpg', emoji:'🧑', available:false },
+  { id:'D-002', name:'Laura Rodríguez',  img:'public/img/drivers/D-002.jpg', emoji:'👩', available:false },
+  { id:'D-003', name:'Andrés Torres',    img:'public/img/drivers/D-003.jpg', emoji:'🧑', available:false },
+  { id:'D-004', name:'Valentina Gómez',  img:'public/img/drivers/D-004.jpg', emoji:'👩', available:false },
+  { id:'D-005', name:'Miguel Herrera',   img:'public/img/drivers/D-005.jpg', emoji:'🧑', available:false },
 ];
 
 const ADDRESSES = [
@@ -1382,8 +1384,10 @@ function driverData(driverName) {
 function foodThumbHTML(product) {
   const src   = foodImgSrc(product);
   const emoji = foodEmoji(product);
-  if (src) {
-    return `<div class="food-thumb"><img src="${src}" onerror="this.parentElement.innerHTML='${emoji}'" alt="${esc(product)}"></div>`;
+  const item  = FOOD_CATALOG.find(f => product && product.toLowerCase().includes(f.key));
+  // Solo intentar cargar imagen si el archivo está marcado como disponible
+  if (src && item && item.available) {
+    return `<div class="food-thumb"><img src="${src}" onerror="this.parentElement.textContent='${emoji}';this.remove()" alt="${esc(product)}"></div>`;
   }
   return `<div class="food-thumb">${emoji}</div>`;
 }
@@ -1392,13 +1396,13 @@ function driverThumbHTML(dto) {
   if (!dto.driverName) return `<span style="color:var(--muted)">—</span>`;
   const d = driverData(dto.driverName);
   const em = d ? d.emoji : '🛵';
-  if (d) {
+  if (d && d.available) {
     return `<div class="driver-cell">
-      <div class="driver-avatar"><img src="${d.img}" onerror="this.parentElement.textContent='${em}'" alt="${d.name}"></div>
+      <div class="driver-avatar"><img src="${d.img}" onerror="this.parentElement.textContent='${em}';this.remove()" alt="${d.name}"></div>
       <span>${esc(dto.driverName)}</span>
     </div>`;
   }
-  return `<div class="driver-cell"><div class="driver-avatar">🛵</div><span>${esc(dto.driverName)}</span></div>`;
+  return `<div class="driver-cell"><div class="driver-avatar">${em}</div><span>${esc(dto.driverName)}</span></div>`;
 }
 
 // ════════════════════════════════════════════════════
@@ -1561,7 +1565,9 @@ function actualizarTrackingDetail(dto) {
     const d = driverData(dto.driverName);
     const avatarEl = document.getElementById('driverInfoAvatar');
     if (d) {
-      avatarEl.innerHTML = `<img src="${d.img}" onerror="this.parentElement.textContent='${d.emoji}'" alt="${d.name}">`;
+      avatarEl.innerHTML = d.available
+        ? `<img src="${d.img}" onerror="this.parentElement.textContent='${d.emoji}';this.remove()" alt="${d.name}">`
+        : d.emoji;
     } else {
       avatarEl.textContent = '🛵';
     }
@@ -1702,9 +1708,7 @@ function renderDriversGrid() {
   const grid = document.getElementById('driversGrid');
   grid.innerHTML = DRIVERS_DATA.map(d => `
     <div class="driver-card" id="dc-${d.id}">
-      <div class="dc-avatar">
-        <img src="${d.img}" onerror="this.parentElement.textContent='${d.emoji}'" alt="${d.name}">
-      </div>
+      <div class="dc-avatar">${d.emoji}</div>
       <div class="dc-name">${d.name}</div>
       <div class="dc-id">${d.id}</div>
       <div class="dc-status available" id="dcs-${d.id}">
@@ -1810,9 +1814,7 @@ function renderFoodMenu() {
   menu.innerHTML = FOOD_CATALOG.map(f => `
     <div class="food-item ${f.key === selectedFood.key ? 'selected' : ''}"
          onclick="selectFood('${f.key}')">
-      <div class="food-item-img">
-        <img src="${f.img}" onerror="this.parentElement.textContent='${f.emoji}'" alt="${f.name}">
-      </div>
+      <div class="food-item-img">${f.emoji}</div>
       <div class="food-item-name">${f.name}</div>
       <div class="food-item-price">${f.price}</div>
     </div>
@@ -1856,7 +1858,7 @@ function enviarPedido() {
   const body = { customerName: name, product: selectedFood.name, quantity: qty, address: addr };
   logEvento(`⏳ Enviando pedido: ${name} — ${selectedFood.name}`, 'info');
 
-  fetch('http://localhost:8080/api/orders', {
+  fetch('/api/orders', {
     method:'POST',
     headers:{'Content-Type':'application/json'},
     body:JSON.stringify(body)
