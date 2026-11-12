@@ -141,6 +141,7 @@ services:
     volumes:
       - ./infrastructure/kafka/create-topics.sh:/create-topics.sh:ro
     entrypoint: ["/bin/bash", "/create-topics.sh"]
+    restart: "no"
     networks:
       - rappi_net
 
@@ -216,7 +217,7 @@ services:
       postgres:
         condition: service_healthy
       kafka-init:
-        condition: service_completed_successfully
+        condition: service_started
     deploy:
       resources:
         limits:
@@ -249,7 +250,7 @@ services:
       kafka:
         condition: service_healthy
       kafka-init:
-        condition: service_completed_successfully
+        condition: service_started
     deploy:
       resources:
         limits:
@@ -283,7 +284,7 @@ services:
       rabbitmq:
         condition: service_healthy
       kafka-init:
-        condition: service_completed_successfully
+        condition: service_started
     deploy:
       resources:
         limits:
@@ -384,7 +385,7 @@ services:
       postgres:
         condition: service_healthy
       kafka-init:
-        condition: service_completed_successfully
+        condition: service_started
       dashboard_backend:
         condition: service_healthy
     deploy:
