@@ -219,7 +219,7 @@ services:
       postgres:
         condition: service_healthy
       kafka-init:
-        condition: service_started
+        condition: service_completed_successfully
     deploy:
       resources:
         limits:
@@ -252,7 +252,7 @@ services:
       kafka:
         condition: service_healthy
       kafka-init:
-        condition: service_started
+        condition: service_completed_successfully
     deploy:
       resources:
         limits:
@@ -286,7 +286,7 @@ services:
       rabbitmq:
         condition: service_healthy
       kafka-init:
-        condition: service_started
+        condition: service_completed_successfully
     deploy:
       resources:
         limits:
@@ -396,7 +396,9 @@ services:
           cpus: '0.50'
           memory: 384M
     networks:
-      - rappi_net
+      rappi_net:
+        aliases:
+          - dashboardaggregator
 
   # =================================================
   # MICROSERVICIO 8: dashboard_backend
@@ -414,6 +416,8 @@ services:
     ports:
       - "${DASHBOARD_BACKEND_PORT:-8087}:8087"
     environment:
+      ORDER_API_URL: http://orderapi:8080
+      AGGREGATOR_URL: http://dashboardaggregator:8086
       JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8087/health || exit 1"]
