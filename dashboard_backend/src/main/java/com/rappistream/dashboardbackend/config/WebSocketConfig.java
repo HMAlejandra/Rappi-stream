@@ -7,21 +7,14 @@ import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
 import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
 /**
- * Configuración WebSocket con STOMP.
+ * Configuración WebSocket con STOMP — sin SockJS.
  *
- * STOMP (Simple Text Oriented Messaging Protocol) es un protocolo
- * de mensajería sobre WebSocket. Spring lo soporta nativamente.
+ * SockJS usa el evento 'unload' que está bloqueado en browsers modernos
+ * por la Permissions Policy. Se reemplaza por WebSocket nativo directo.
  *
- * Por qué STOMP sobre WebSocket puro:
- * - Tiene concepto de "topics" (destinos de suscripción)
- * - Spring maneja automáticamente el broadcast a múltiples clientes
- * - El cliente JS usa stomp.js — más robusto que WebSocket nativo
- *
- * Configuración:
- * - Endpoint de conexión: /ws
- * - Prefijo de mensajes del servidor: /topic
- * - El aggregator publica en: /topic/orders
- * - El cliente JS se suscribe a: /topic/orders
+ * El cliente JS usa STOMP sobre WebSocket nativo (sin SockJS):
+ *   const socket = new WebSocket("ws://localhost:8087/ws");
+ *   const client = Stomp.over(socket);
  */
 @Configuration
 @EnableWebSocketMessageBroker
@@ -29,17 +22,14 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
-        // El broker simple de Spring maneja /topic/**
         registry.enableSimpleBroker("/topic");
-        // Prefijo para mensajes que van al servidor (no usado en este MVP)
         registry.setApplicationDestinationPrefixes("/app");
     }
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
+        // Sin withSockJS() — WebSocket nativo puro, sin el evento 'unload'
         registry.addEndpoint("/ws")
-                // SockJS como fallback para navegadores sin WebSocket nativo
-                .setAllowedOriginPatterns("*")
-                .withSockJS();
+                .setAllowedOriginPatterns("*");
     }
 }
