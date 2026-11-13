@@ -23,7 +23,14 @@ import java.util.Map;
  * El pedido fue aceptado y encolado — no procesado aún.
  * 202 es más correcto que 201 Created porque el recurso
  * no está creado todavía (lo crea order_processor).
+ *
+ * @CrossOrigin:
+ * El dashboard (puerto 8087) llama directamente a este endpoint
+ * (puerto 8080). El navegador bloquea peticiones cross-origin
+ * a menos que el servidor responda con los headers CORS correctos.
+ * allowedOriginPatterns="*" permite cualquier origen en desarrollo.
  */
+@CrossOrigin(origins = "*")
 @RestController
 @RequestMapping("/api/orders")
 public class OrderController {
