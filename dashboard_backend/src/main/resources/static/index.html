@@ -1,0 +1,707 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rappi-Stream — Dashboard en Tiempo Real</title>
+    <style>
+        /* ================================================
+           RESET Y VARIABLES
+           ================================================ */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        :root {
+            --bg:        #0f1117;
+            --surface:   #1a1d27;
+            --card:      #22263a;
+            --border:    #2e3350;
+            --accent:    #ff6600;
+            --accent2:   #ffaa00;
+            --text:      #e8eaf6;
+            --muted:     #8892b0;
+            --green:     #4caf50;
+            --blue:      #2196f3;
+            --orange:    #ff9800;
+            --red:       #f44336;
+            --purple:    #9c27b0;
+            --radius:    12px;
+            --shadow:    0 4px 24px rgba(0,0,0,0.4);
+        }
+
+        body {
+            background: var(--bg);
+            color: var(--text);
+            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+            font-size: 14px;
+            line-height: 1.6;
+            min-height: 100vh;
+        }
+
+        /* ================================================
+           HEADER
+           ================================================ */
+        header {
+            background: linear-gradient(135deg, #1a1d27 0%, #22263a 100%);
+            border-bottom: 2px solid var(--accent);
+            padding: 20px 32px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            box-shadow: var(--shadow);
+        }
+
+        .header-brand {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .logo {
+            width: 44px;
+            height: 44px;
+            background: var(--accent);
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+        }
+
+        .brand-text h1 {
+            font-size: 22px;
+            font-weight: 700;
+            color: var(--text);
+            letter-spacing: 1px;
+        }
+
+        .brand-text p {
+            font-size: 11px;
+            color: var(--muted);
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
+        .header-actions {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .ws-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 14px;
+            border-radius: 20px;
+            background: rgba(255,255,255,0.05);
+            font-size: 12px;
+            font-weight: 600;
+        }
+
+        .ws-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--red);
+            transition: background 0.3s;
+        }
+
+        .ws-dot.connected { background: var(--green); animation: pulse 2s infinite; }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50%       { opacity: 0.5; }
+        }
+
+        /* ================================================
+           BOTÓN CREAR PEDIDO
+           ================================================ */
+        .btn-create {
+            padding: 10px 22px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            cursor: pointer;
+            letter-spacing: 0.5px;
+            transition: all 0.2s;
+        }
+
+        .btn-create:hover { background: #ff8533; transform: translateY(-1px); }
+        .btn-create:active { transform: translateY(0); }
+        .btn-create:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        /* ================================================
+           MAIN LAYOUT
+           ================================================ */
+        main {
+            max-width: 1300px;
+            margin: 0 auto;
+            padding: 28px 32px;
+        }
+
+        /* ================================================
+           MÉTRICAS
+           ================================================ */
+        .metrics-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 16px;
+            margin-bottom: 28px;
+        }
+
+        .metric-card {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            padding: 20px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            transition: transform 0.2s;
+        }
+
+        .metric-card:hover { transform: translateY(-2px); }
+
+        .metric-icon {
+            width: 48px;
+            height: 48px;
+            border-radius: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+            flex-shrink: 0;
+        }
+
+        .metric-data .value {
+            font-size: 28px;
+            font-weight: 800;
+            line-height: 1;
+        }
+
+        .metric-data .label {
+            font-size: 11px;
+            color: var(--muted);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 4px;
+        }
+
+        /* ================================================
+           TABLA DE PEDIDOS
+           ================================================ */
+        .section-title {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .table-container {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            margin-bottom: 28px;
+            box-shadow: var(--shadow);
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead th {
+            background: var(--surface);
+            padding: 14px 16px;
+            text-align: left;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--muted);
+            border-bottom: 1px solid var(--border);
+        }
+
+        tbody tr {
+            border-bottom: 1px solid var(--border);
+            transition: background 0.15s;
+        }
+
+        tbody tr:last-child { border-bottom: none; }
+        tbody tr:hover { background: rgba(255,255,255,0.03); }
+
+        tbody td {
+            padding: 14px 16px;
+            font-size: 13px;
+            vertical-align: middle;
+        }
+
+        .order-id {
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            color: var(--muted);
+        }
+
+        /* ================================================
+           BADGES DE ESTADO
+           ================================================ */
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 10px;
+            border-radius: 20px;
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .badge-dot { width: 6px; height: 6px; border-radius: 50%; }
+
+        .badge.CREADO      { background: rgba(96,125,139,0.2); color: #90a4ae; }
+        .badge.ASIGNADO    { background: rgba(33,150,243,0.2); color: #64b5f6; }
+        .badge.EN_CAMINO   { background: rgba(255,152,0,0.2);  color: #ffb74d; }
+        .badge.LLEGANDO    { background: rgba(156,39,176,0.2); color: #ce93d8; }
+        .badge.ENTREGADO   { background: rgba(76,175,80,0.2);  color: #81c784; }
+
+        .badge.CREADO    .badge-dot { background: #90a4ae; }
+        .badge.ASIGNADO  .badge-dot { background: #64b5f6; }
+        .badge.EN_CAMINO .badge-dot { background: #ffb74d; animation: pulse 1.5s infinite; }
+        .badge.LLEGANDO  .badge-dot { background: #ce93d8; animation: pulse 1s infinite; }
+        .badge.ENTREGADO .badge-dot { background: #81c784; }
+
+        /* ================================================
+           HISTORIAL DE EVENTOS
+           ================================================ */
+        .log-container {
+            background: var(--card);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            overflow: hidden;
+            box-shadow: var(--shadow);
+        }
+
+        .log-header {
+            background: var(--surface);
+            padding: 14px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .log-list {
+            max-height: 320px;
+            overflow-y: auto;
+            padding: 8px 0;
+        }
+
+        .log-list::-webkit-scrollbar { width: 4px; }
+        .log-list::-webkit-scrollbar-track { background: transparent; }
+        .log-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+        .log-entry {
+            padding: 10px 16px;
+            border-bottom: 1px solid rgba(255,255,255,0.03);
+            display: flex;
+            align-items: flex-start;
+            gap: 12px;
+            animation: slideIn 0.3s ease;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(-10px); }
+            to   { opacity: 1; transform: translateX(0); }
+        }
+
+        .log-time {
+            font-size: 11px;
+            color: var(--muted);
+            font-family: 'Courier New', monospace;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .log-msg { font-size: 13px; }
+
+        .log-empty {
+            padding: 40px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        /* ================================================
+           EMPTY STATE
+           ================================================ */
+        .empty-state {
+            padding: 48px;
+            text-align: center;
+            color: var(--muted);
+        }
+
+        .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
+        .empty-state p { font-size: 14px; }
+
+        /* ================================================
+           HIGHLIGHT ROW ANIMATION
+           ================================================ */
+        @keyframes highlightRow {
+            0%   { background: rgba(255,102,0,0.15); }
+            100% { background: transparent; }
+        }
+
+        tr.updated { animation: highlightRow 2s ease; }
+
+        /* ================================================
+           RESPONSIVE
+           ================================================ */
+        @media (max-width: 768px) {
+            header { padding: 16px; flex-direction: column; gap: 12px; }
+            main   { padding: 16px; }
+            .metrics-grid { grid-template-columns: repeat(2, 1fr); }
+            thead th:nth-child(4), tbody td:nth-child(4) { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+    <div class="header-brand">
+        <div class="logo">🚀</div>
+        <div class="brand-text">
+            <h1>RAPPI-STREAM</h1>
+            <p>Plataforma de Logística en Tiempo Real</p>
+        </div>
+    </div>
+    <div class="header-actions">
+        <div class="ws-status">
+            <div class="ws-dot" id="wsDot"></div>
+            <span id="wsLabel">Desconectado</span>
+        </div>
+        <button class="btn-create" id="btnCreate" onclick="crearPedidoPrueba()" disabled>
+            + Nuevo Pedido
+        </button>
+    </div>
+</header>
+
+<!-- MAIN -->
+<main>
+
+    <!-- MÉTRICAS -->
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <div class="metric-icon" style="background:rgba(255,102,0,0.15)">📦</div>
+            <div class="metric-data">
+                <div class="value" id="metricTotal">0</div>
+                <div class="label">Pedidos Totales</div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon" style="background:rgba(96,125,139,0.15)">🆕</div>
+            <div class="metric-data">
+                <div class="value" id="metricCreado">0</div>
+                <div class="label">Creados</div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon" style="background:rgba(33,150,243,0.15)">👤</div>
+            <div class="metric-data">
+                <div class="value" id="metricAsignado">0</div>
+                <div class="label">Asignados</div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon" style="background:rgba(255,152,0,0.15)">🚴</div>
+            <div class="metric-data">
+                <div class="value" id="metricEnCamino">0</div>
+                <div class="label">En Camino</div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon" style="background:rgba(156,39,176,0.15)">📍</div>
+            <div class="metric-data">
+                <div class="value" id="metricLlegando">0</div>
+                <div class="label">Llegando</div>
+            </div>
+        </div>
+        <div class="metric-card">
+            <div class="metric-icon" style="background:rgba(76,175,80,0.15)">✅</div>
+            <div class="metric-data">
+                <div class="value" id="metricEntregado">0</div>
+                <div class="label">Entregados</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- TABLA DE PEDIDOS -->
+    <div class="section-title">📋 Estado de Pedidos</div>
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID Pedido</th>
+                    <th>Cliente</th>
+                    <th>Producto</th>
+                    <th>Dirección</th>
+                    <th>Repartidor</th>
+                    <th>Estado</th>
+                    <th>Última Act.</th>
+                </tr>
+            </thead>
+            <tbody id="ordersTableBody">
+                <tr>
+                    <td colspan="7">
+                        <div class="empty-state">
+                            <div class="icon">📭</div>
+                            <p>No hay pedidos aún. Crea uno con el botón "Nuevo Pedido".</p>
+                        </div>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- HISTORIAL -->
+    <div class="section-title">📡 Historial de Eventos</div>
+    <div class="log-container">
+        <div class="log-header">
+            <span class="section-title" style="margin:0">Eventos en tiempo real</span>
+            <button onclick="limpiarLog()"
+                style="background:transparent;border:1px solid var(--border);color:var(--muted);
+                       padding:4px 12px;border-radius:6px;cursor:pointer;font-size:11px;">
+                Limpiar
+            </button>
+        </div>
+        <div class="log-list" id="logList">
+            <div class="log-empty" id="logEmpty">Esperando eventos del sistema...</div>
+        </div>
+    </div>
+
+</main>
+
+<!-- SockJS + STOMP -->
+<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
+
+<script>
+// ================================================
+// ESTADO LOCAL DEL DASHBOARD
+// ================================================
+const orders = new Map(); // orderId → OrderStatusDTO
+let stompClient = null;
+let reconectarTimer = null;
+
+// ================================================
+// CONEXIÓN WEBSOCKET
+// ================================================
+function conectar() {
+    const socket = new SockJS('/ws');
+    stompClient = Stomp.over(socket);
+    stompClient.debug = null; // silenciar logs de STOMP en consola
+
+    stompClient.connect({}, onConectado, onDesconectado);
+}
+
+function onConectado() {
+    setWsStatus(true);
+    agregarLog('🟢 Conectado al servidor WebSocket', 'sistema');
+
+    // Suscribirse al topic de pedidos
+    stompClient.subscribe('/topic/orders', function(message) {
+        try {
+            const dto = JSON.parse(message.body);
+            procesarActualizacion(dto);
+        } catch(e) {
+            console.error('Error parseando mensaje WebSocket:', e);
+        }
+    });
+}
+
+function onDesconectado() {
+    setWsStatus(false);
+    agregarLog('🔴 Desconectado del servidor. Reconectando en 5s...', 'error');
+    reconectarTimer = setTimeout(conectar, 5000);
+}
+
+function setWsStatus(conectado) {
+    document.getElementById('wsDot').className = 'ws-dot' + (conectado ? ' connected' : '');
+    document.getElementById('wsLabel').textContent = conectado ? 'Conectado' : 'Desconectado';
+    document.getElementById('btnCreate').disabled = !conectado;
+}
+
+// ================================================
+// PROCESAMIENTO DE ACTUALIZACIONES
+// ================================================
+function procesarActualizacion(dto) {
+    const esNuevo = !orders.has(dto.orderId);
+    orders.set(dto.orderId, dto);
+
+    actualizarTabla(dto, esNuevo);
+    actualizarMetricas();
+    agregarLog(construirMensajeLog(dto), dto.status);
+}
+
+function construirMensajeLog(dto) {
+    const id = dto.orderId.substring(0, 8) + '...';
+    const iconos = {
+        'CREADO':    '📦',
+        'ASIGNADO':  '👤',
+        'EN_CAMINO': '🚴',
+        'LLEGANDO':  '📍',
+        'ENTREGADO': '✅'
+    };
+    const icono = iconos[dto.status] || '📋';
+    const driver = dto.driverName ? ` | ${dto.driverName}` : '';
+    return `${icono} [${id}] ${dto.customerName} → <strong>${dto.status}</strong>${driver}`;
+}
+
+// ================================================
+// TABLA DE PEDIDOS
+// ================================================
+function actualizarTabla(dto, esNuevo) {
+    const tbody = document.getElementById('ordersTableBody');
+
+    // Eliminar el empty state si existe
+    const emptyRow = tbody.querySelector('tr td[colspan]');
+    if (emptyRow) emptyRow.closest('tr').remove();
+
+    const rowId = 'row-' + dto.orderId;
+    let row = document.getElementById(rowId);
+
+    if (!row) {
+        row = document.createElement('tr');
+        row.id = rowId;
+        tbody.prepend(row); // nuevos pedidos arriba
+    }
+
+    const fechaFmt = dto.lastUpdated
+        ? new Date(dto.lastUpdated).toLocaleTimeString('es-CO', {hour:'2-digit', minute:'2-digit', second:'2-digit'})
+        : '--';
+
+    row.innerHTML = `
+        <td class="order-id">${dto.orderId.substring(0,8)}...</td>
+        <td>${esc(dto.customerName)}</td>
+        <td>${esc(dto.product)} × ${dto.quantity || 1}</td>
+        <td>${esc(dto.address || '--')}</td>
+        <td>${dto.driverName ? esc(dto.driverName) : '<span style="color:var(--muted)">—</span>'}</td>
+        <td><span class="badge ${dto.status}"><span class="badge-dot"></span>${dto.status}</span></td>
+        <td style="color:var(--muted);font-size:12px">${fechaFmt}</td>
+    `;
+
+    // Animación de actualización
+    row.classList.remove('updated');
+    void row.offsetWidth; // forzar reflow
+    row.classList.add('updated');
+}
+
+// ================================================
+// MÉTRICAS
+// ================================================
+function actualizarMetricas() {
+    const counts = { CREADO:0, ASIGNADO:0, EN_CAMINO:0, LLEGANDO:0, ENTREGADO:0 };
+    for (const dto of orders.values()) {
+        if (counts[dto.status] !== undefined) counts[dto.status]++;
+    }
+    document.getElementById('metricTotal').textContent    = orders.size;
+    document.getElementById('metricCreado').textContent   = counts.CREADO;
+    document.getElementById('metricAsignado').textContent = counts.ASIGNADO;
+    document.getElementById('metricEnCamino').textContent = counts.EN_CAMINO;
+    document.getElementById('metricLlegando').textContent = counts.LLEGANDO;
+    document.getElementById('metricEntregado').textContent= counts.ENTREGADO;
+}
+
+// ================================================
+// LOG DE EVENTOS
+// ================================================
+function agregarLog(mensaje, tipo) {
+    const logList = document.getElementById('logList');
+    const empty   = document.getElementById('logEmpty');
+    if (empty) empty.remove();
+
+    const ahora = new Date().toLocaleTimeString('es-CO', {
+        hour:'2-digit', minute:'2-digit', second:'2-digit'
+    });
+
+    const entry = document.createElement('div');
+    entry.className = 'log-entry';
+    entry.innerHTML = `
+        <span class="log-time">${ahora}</span>
+        <span class="log-msg">${mensaje}</span>
+    `;
+
+    logList.prepend(entry);
+
+    // Limitar a 50 entradas
+    while (logList.children.length > 50) {
+        logList.removeChild(logList.lastChild);
+    }
+}
+
+function limpiarLog() {
+    const logList = document.getElementById('logList');
+    logList.innerHTML = '<div class="log-empty" id="logEmpty">Log limpiado.</div>';
+}
+
+// ================================================
+// CREAR PEDIDO DE PRUEBA
+// ================================================
+const nombres  = ['María García', 'Carlos López', 'Laura Martínez', 'Andrés Torres', 'Valentina Gómez'];
+const productos = ['Hamburguesa doble', 'Pizza familiar', 'Sushi combo', 'Tacos x3', 'Ensalada César', 'Pasta carbonara'];
+const calles   = ['Calle 100 #15-30', 'Carrera 7 #45-12', 'Av. El Dorado #90-11', 'Calle 72 #10-07'];
+
+function crearPedidoPrueba() {
+    const request = {
+        customerName: nombres[Math.floor(Math.random() * nombres.length)],
+        product:      productos[Math.floor(Math.random() * productos.length)],
+        quantity:     Math.floor(Math.random() * 3) + 1,
+        address:      calles[Math.floor(Math.random() * calles.length)] + ', Bogotá'
+    };
+
+    agregarLog(`⏳ Enviando pedido: ${request.customerName} — ${request.product}`, 'sistema');
+
+    fetch('http://localhost:8080/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(request)
+    })
+    .then(res => res.json())
+    .then(data => {
+        agregarLog(`✅ Pedido aceptado: orderId=${data.orderId.substring(0,8)}...`, 'ASIGNADO');
+    })
+    .catch(err => {
+        agregarLog(`❌ Error creando pedido: ${err.message}`, 'error');
+        console.error(err);
+    });
+}
+
+// Escape XSS básico
+function esc(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+}
+
+// ================================================
+// ARRANCAR
+// ================================================
+window.addEventListener('load', conectar);
+</script>
+
+</body>
+</html>
