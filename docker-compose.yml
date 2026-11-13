@@ -376,7 +376,7 @@ services:
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB}
       SPRING_DATASOURCE_USERNAME: ${POSTGRES_USER}
       SPRING_DATASOURCE_PASSWORD: ${POSTGRES_PASSWORD}
-      DASHBOARD_BACKEND_URL: http://dashboard_backend:8087
+      DASHBOARD_BACKEND_URL: http://dashboard-backend:8087
       JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
     depends_on:
       kafka:
@@ -385,7 +385,7 @@ services:
         condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
-      dashboard_backend:
+      dashboard-backend:
         condition: service_healthy
     deploy:
       resources:
@@ -399,8 +399,10 @@ services:
   # MICROSERVICIO 8: dashboard_backend
   # Puerto: 8087 | RAM: 384M | CPU: 0.50
   # Servidor WebSocket + sirve dashboard.html.
+  # Nombre: dashboard-backend (guión, no guión bajo)
+  # Tomcat 10 rechaza '_' en headers Host — usar '-'
   # =================================================
-  dashboard_backend:
+  dashboard-backend:
     build:
       context: .
       dockerfile: dashboard_backend/Dockerfile
