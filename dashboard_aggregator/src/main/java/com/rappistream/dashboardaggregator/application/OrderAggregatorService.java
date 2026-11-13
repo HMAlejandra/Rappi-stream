@@ -115,15 +115,14 @@ public class OrderAggregatorService {
         switch (envelope.eventType()) {
 
             case ORDER_CREATED -> {
-                // Crear snapshot inicial — parsear datos básicos del payload
+                // Crear snapshot inicial — parsear todos los datos del payload
                 if (!snapshots.containsKey(orderId)) {
-                    // El payload de ORDER_CREATED contiene customerName, product
-                    // (formato simple de JSON generado en KafkaOrderEventPublisher)
                     var node = objectMapper.readTree(envelope.payload());
                     String customerName = node.path("customerName").asText("Desconocido");
                     String product      = node.path("product").asText("Desconocido");
-                    // quantity y address los actualizamos cuando llegue DRIVER_ASSIGNED
-                    OrderSnapshot snap = new OrderSnapshot(orderId, customerName, product, 0, "");
+                    int    quantity     = node.path("quantity").asInt(1);
+                    String address      = node.path("address").asText("");
+                    OrderSnapshot snap = new OrderSnapshot(orderId, customerName, product, quantity, address);
                     snapshots.put(orderId, snap);
                     log.debug("[dashboard_aggregator] Snapshot creado — orderId={}", orderId);
                 }
@@ -140,31 +139,25 @@ public class OrderAggregatorService {
             }
 
             case DELIVERY_STARTED -> {
-                OrderSnapshot snap = snapshots.get(orderId);
-                if (snap == null) {
-                    log.warn("[dashboard_aggregator] DELIVERY_STARTED sin snapshot previo — orderId={}", orderId);
-                    return null;
+                OrderSnapshot snap = snapshots.computeIfAbsent(orderId,
+                        id -> new OrderSnapshot(id, "Desconocido", "Desconocido", 1, ""));
+                if (snapshots.get(orderId) == snap && snap.getStatus() == null) {
+                    log.warn("[dashboard_aggregator] DELIVERY_STARTED reconstruyendo snapshot faltante — orderId={}", orderId);
                 }
                 snap.aplicarDeliveryStarted();
                 return snap;
             }
 
             case DRIVER_ARRIVING -> {
-                OrderSnapshot snap = snapshots.get(orderId);
-                if (snap == null) {
-                    log.warn("[dashboard_aggregator] DRIVER_ARRIVING sin snapshot previo — orderId={}", orderId);
-                    return null;
-                }
+                OrderSnapshot snap = snapshots.computeIfAbsent(orderId,
+                        id -> new OrderSnapshot(id, "Desconocido", "Desconocido", 1, ""));
                 snap.aplicarDriverArriving();
                 return snap;
             }
 
             case ORDER_DELIVERED -> {
-                OrderSnapshot snap = snapshots.get(orderId);
-                if (snap == null) {
-                    log.warn("[dashboard_aggregator] ORDER_DELIVERED sin snapshot previo — orderId={}", orderId);
-                    return null;
-                }
+                OrderSnapshot snap = snapshots.computeIfAbsent(orderId,
+                        id -> new OrderSnapshot(id, "Desconocido", "Desconocido", 1, ""));
                 snap.aplicarOrderDelivered();
                 return snap;
             }

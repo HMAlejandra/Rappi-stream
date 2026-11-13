@@ -22,8 +22,8 @@ import java.util.List;
  *    → serializa Instant como "2026-11-13T03:27:44Z" (ISO-8601), no como array
  * 2. Content-Type: application/json explícito en cada request
  *    → el backend puede deserializar el body correctamente
- * 3. URL usa nombre de servicio Docker sin guión bajo gracias a la
- *    propiedad server.tomcat.relaxed-path-chars en el backend
+ * 3. URL usa nombre de servicio Docker sin guión bajo (dashboard-backend)
+ *    para evitar el rechazo de Tomcat por hostname inválido.
  */
 @Component
 public class DashboardBackendClient {
@@ -34,14 +34,12 @@ public class DashboardBackendClient {
     private final String       backendUrl;
 
     public DashboardBackendClient(
-            @Value("${dashboard.backend.url:http://dashboard_backend:8087}") String backendUrl,
+            @Value("${dashboard.backend.url}") String backendUrl,
             ObjectMapper objectMapper) {
-
         // Configurar RestTemplate con el mismo ObjectMapper del aggregator
         // (que incluye JavaTimeModule → Instant como ISO-8601)
         MappingJackson2HttpMessageConverter converter =
                 new MappingJackson2HttpMessageConverter(objectMapper);
-
         this.restTemplate = new RestTemplate(List.of(converter));
         this.backendUrl   = backendUrl;
     }
@@ -53,17 +51,14 @@ public class DashboardBackendClient {
     public void notificarActualizacion(OrderStatusDTO dto) {
         try {
             String url = backendUrl + "/internal/update";
-
             // Especificar Content-Type explícitamente para que Spring
             // seleccione el converter correcto en el backend
             HttpHeaders headers = new HttpHeaders();
             headers.setContentType(MediaType.APPLICATION_JSON);
             HttpEntity<OrderStatusDTO> request = new HttpEntity<>(dto, headers);
-
             ResponseEntity<Void> response = restTemplate.postForEntity(url, request, Void.class);
             log.debug("[dashboard_aggregator] Notificación enviada — orderId={} status={}",
                     dto.orderId(), response.getStatusCode());
-
         } catch (RestClientException e) {
             log.warn("[dashboard_aggregator] No se pudo notificar al dashboard_backend — orderId={}: {}",
                     dto.orderId(), e.getMessage());
