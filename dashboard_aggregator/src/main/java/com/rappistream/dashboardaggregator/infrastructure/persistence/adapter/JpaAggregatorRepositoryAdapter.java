@@ -1,7 +1,7 @@
 package com.rappistream.dashboardaggregator.infrastructure.persistence.adapter;
 
 import com.rappistream.common.events.OrderEventEnvelope;
-import com.rappistream.dashboardaggregator.domain.OrderSnapshot;
+import com.rappistream.dashboardaggregator.domain.model.OrderSnapshot;
 import com.rappistream.dashboardaggregator.domain.port.OrderEventLogPort;
 import com.rappistream.dashboardaggregator.domain.port.OrderPersistencePort;
 import com.rappistream.dashboardaggregator.infrastructure.persistence.entity.OrderEntity;

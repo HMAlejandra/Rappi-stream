@@ -3,7 +3,7 @@ package com.rappistream.dashboardaggregator.infrastructure.controller;
 import com.rappistream.common.dto.OrderStatusDTO;
 import com.rappistream.common.enums.OrderStatus;
 import com.rappistream.dashboardaggregator.application.OrderAggregatorService;
-import com.rappistream.dashboardaggregator.domain.OrderSnapshot;
+import com.rappistream.dashboardaggregator.domain.model.OrderSnapshot;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;

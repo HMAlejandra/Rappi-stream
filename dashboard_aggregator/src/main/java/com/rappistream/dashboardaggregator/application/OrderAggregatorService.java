@@ -4,7 +4,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rappistream.common.dto.OrderStatusDTO;
 import com.rappistream.common.events.OrderEventEnvelope;
 import com.rappistream.common.events.payloads.DriverAssignedPayload;
-import com.rappistream.dashboardaggregator.domain.OrderSnapshot;
+import com.rappistream.dashboardaggregator.domain.model.OrderSnapshot;
 import com.rappistream.dashboardaggregator.domain.port.OrderEventLogPort;
 import com.rappistream.dashboardaggregator.domain.port.OrderPersistencePort;
 import org.slf4j.Logger;

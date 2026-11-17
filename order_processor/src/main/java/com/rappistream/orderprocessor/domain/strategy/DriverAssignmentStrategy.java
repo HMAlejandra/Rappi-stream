@@ -3,27 +3,20 @@ package com.rappistream.orderprocessor.domain.strategy;
 import com.rappistream.orderprocessor.domain.model.Pedido;
 
 /**
- * Puerto de la estrategia de asignación de repartidores.
+ * Contrato del Patrón Strategy para la asignación de repartidores.
  *
  * POO — Patrón Strategy:
  * Define el contrato que deben cumplir todas las estrategias de
  * asignación. El servicio de aplicación depende de esta interfaz,
  * no de ninguna implementación concreta.
  *
- * Principio Abierto/Cerrado (OCP):
+ * DIP — Inversión de Dependencias:
+ * Los módulos de alto nivel (OrderProcessorService) dependen de
+ * esta abstracción. Las implementaciones concretas la implementan.
+ *
+ * OCP — Abierto/Cerrado:
  * Para cambiar la política de asignación, se implementa una nueva
  * clase sin modificar el servicio que la usa.
- *
- * Segregación de Interfaces (ISP):
- * Esta interfaz tiene una sola responsabilidad: asignar repartidor.
- * No mezcla responsabilidades de notificación ni persistencia.
- *
- * Inversión de Dependencias (DIP):
- * Los módulos de alto nivel (OrderProcessorService) dependen de
- * esta abstracción. Las implementaciones concretas dependen de ella.
- *
- * Implementaciones disponibles:
- * - RoundRobinAssignmentStrategy: asignación circular entre repartidores disponibles
  */
 public interface DriverAssignmentStrategy {
 

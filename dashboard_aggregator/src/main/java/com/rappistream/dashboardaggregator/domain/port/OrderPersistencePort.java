@@ -1,6 +1,6 @@
 package com.rappistream.dashboardaggregator.domain.port;
 
-import com.rappistream.dashboardaggregator.domain.OrderSnapshot;
+import com.rappistream.dashboardaggregator.domain.model.OrderSnapshot;
 
 import java.util.Optional;
 

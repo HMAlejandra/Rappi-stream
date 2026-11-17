@@ -7,6 +7,7 @@ import com.rappistream.common.enums.OrderEventType;
 import com.rappistream.common.events.OrderEventEnvelope;
 import com.rappistream.common.events.payloads.DriverArrivingPayload;
 import com.rappistream.notificationrouter.domain.strategy.NotificationStrategy;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
