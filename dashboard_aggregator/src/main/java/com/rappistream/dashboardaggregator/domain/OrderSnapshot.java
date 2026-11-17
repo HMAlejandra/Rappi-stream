@@ -6,18 +6,8 @@ import java.time.Instant;
 
 /**
  * Vista materializada en memoria del estado actual de un pedido.
- *
- * Sistemas Distribuidos — Consumidor Stateful:
- * El aggregator mantiene un Map<orderId, OrderSnapshot> en memoria.
- * Cada evento de Kafka actualiza el snapshot correspondiente.
- * Esta es la "vista materializada" del estado del sistema.
- *
- * POO — Modelo Rico:
- * No es anémico. Tiene métodos semánticos que aplican
- * cada tipo de evento al estado del snapshot.
- *
+ * Actualizada por cada evento de Kafka vía métodos semánticos.
  * No es una entidad JPA — es un objeto de dominio puro.
- * Se convierte a OrderStatusDTO para enviarlo al dashboard_backend.
  */
 public class OrderSnapshot {
 
@@ -45,10 +35,6 @@ public class OrderSnapshot {
         this.lastUpdated  = this.creadoEn;
     }
 
-    // =========================================================
-    // Métodos semánticos — cada evento actualiza el snapshot
-    // =========================================================
-
     public void aplicarDriverAssigned(String driverId, String driverName) {
         this.driverId    = driverId;
         this.driverName  = driverName;
@@ -56,24 +42,9 @@ public class OrderSnapshot {
         this.lastUpdated = Instant.now();
     }
 
-    public void aplicarDeliveryStarted() {
-        this.status      = OrderStatus.EN_CAMINO;
-        this.lastUpdated = Instant.now();
-    }
-
-    public void aplicarDriverArriving() {
-        this.status      = OrderStatus.LLEGANDO;
-        this.lastUpdated = Instant.now();
-    }
-
-    public void aplicarOrderDelivered() {
-        this.status      = OrderStatus.ENTREGADO;
-        this.lastUpdated = Instant.now();
-    }
-
-    // =========================================================
-    // Consultas
-    // =========================================================
+    public void aplicarDeliveryStarted() { this.status = OrderStatus.EN_CAMINO; this.lastUpdated = Instant.now(); }
+    public void aplicarDriverArriving()  { this.status = OrderStatus.LLEGANDO;  this.lastUpdated = Instant.now(); }
+    public void aplicarOrderDelivered()  { this.status = OrderStatus.ENTREGADO; this.lastUpdated = Instant.now(); }
 
     public String      getOrderId()      { return orderId; }
     public String      getCustomerName() { return customerName; }

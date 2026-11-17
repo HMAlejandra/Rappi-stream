@@ -1,4 +1,4 @@
-package com.rappistream.orderprocessor.domain.strategy;
+package com.rappistream.orderprocessor.service.strategy;
 
 import com.rappistream.orderprocessor.domain.model.Driver;
 import com.rappistream.orderprocessor.domain.model.Pedido;
@@ -7,21 +7,21 @@ import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Estrategia de asignación Round-Robin.
+ * Estrategia de asignaciÃ³n Round-Robin.
  *
- * POO — Patrón Strategy (implementación concreta):
- * Rota la selección de repartidores disponibles en orden circular.
+ * POO â€” PatrÃ³n Strategy (implementaciÃ³n concreta):
+ * Rota la selecciÃ³n de repartidores disponibles en orden circular.
  * El pedido 1 va al repartidor 0, el pedido 2 al repartidor 1, etc.
- * Al llegar al último, vuelve al primero.
+ * Al llegar al Ãºltimo, vuelve al primero.
  *
- * Sistemas Operativos — Concurrencia:
- * AtomicInteger garantiza que el índice del cursor sea thread-safe
- * cuando múltiples pedidos lleguen simultáneamente. Esto evita
+ * Sistemas Operativos â€” Concurrencia:
+ * AtomicInteger garantiza que el Ã­ndice del cursor sea thread-safe
+ * cuando mÃºltiples pedidos lleguen simultÃ¡neamente. Esto evita
  * condiciones de carrera sin necesidad de bloques synchronized.
  *
  * Para el MVP: los repartidores se inyectan como lista fija desde
- * la base de datos al iniciar el servicio. En producción real se
- * consultaría disponibilidad en tiempo real.
+ * la base de datos al iniciar el servicio. En producciÃ³n real se
+ * consultarÃ­a disponibilidad en tiempo real.
  */
 public class RoundRobinAssignmentStrategy implements DriverAssignmentStrategy {
 
@@ -29,7 +29,7 @@ public class RoundRobinAssignmentStrategy implements DriverAssignmentStrategy {
 
     /**
      * Cursor circular. AtomicInteger es thread-safe.
-     * Permite que múltiples pedidos concurrentes obtengan
+     * Permite que mÃºltiples pedidos concurrentes obtengan
      * repartidores diferentes sin condiciones de carrera.
      */
     private final AtomicInteger cursor = new AtomicInteger(0);
@@ -37,7 +37,7 @@ public class RoundRobinAssignmentStrategy implements DriverAssignmentStrategy {
     public RoundRobinAssignmentStrategy(List<Driver> repartidores) {
         if (repartidores == null || repartidores.isEmpty()) {
             throw new IllegalArgumentException(
-                    "La lista de repartidores no puede ser nula ni vacía");
+                    "La lista de repartidores no puede ser nula ni vacÃ­a");
         }
         this.repartidores = List.copyOf(repartidores); // defensa: copia inmutable
     }
@@ -53,11 +53,12 @@ public class RoundRobinAssignmentStrategy implements DriverAssignmentStrategy {
                     "No hay repartidores disponibles para asignar al pedido: " + pedido.getId());
         }
 
-        // Selección circular sobre los disponibles
+        // SelecciÃ³n circular sobre los disponibles
         int indice = Math.abs(cursor.getAndIncrement() % disponibles.size());
         Driver seleccionado = disponibles.get(indice);
 
-        // Delega al método de negocio de Pedido (Patrón State valida la transición)
+        // Delega al mÃ©todo de negocio de Pedido (PatrÃ³n State valida la transiciÃ³n)
         pedido.asignarRepartidor(seleccionado.getId(), seleccionado.getName());
     }
 }
+
