@@ -4,7 +4,7 @@ import com.rappistream.common.commands.OrderCreatedCommand;
 import com.rappistream.orderprocessor.domain.model.Pedido;
 import com.rappistream.orderprocessor.domain.port.OrderEventPublisherPort;
 import com.rappistream.orderprocessor.domain.port.OrderRepositoryPort;
-import com.rappistream.orderprocessor.service.strategy.DriverAssignmentStrategy;
+import com.rappistream.orderprocessor.domain.strategy.DriverAssignmentStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;

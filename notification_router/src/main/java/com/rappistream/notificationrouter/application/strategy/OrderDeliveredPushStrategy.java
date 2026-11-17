@@ -1,4 +1,4 @@
-package com.rappistream.notificationrouter.service.strategy;
+package com.rappistream.notificationrouter.application.strategy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rappistream.common.commands.NotificationCommand;
@@ -6,7 +6,7 @@ import com.rappistream.common.enums.NotificationType;
 import com.rappistream.common.enums.OrderEventType;
 import com.rappistream.common.events.OrderEventEnvelope;
 import com.rappistream.common.events.payloads.OrderDeliveredPayload;
-import com.rappistream.notificationrouter.service.NotificationStrategy;
+import com.rappistream.notificationrouter.domain.strategy.NotificationStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -16,13 +16,13 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Estrategia concreta: ORDER_DELIVERED â†’ Push al repartidor.
+ * Estrategia concreta: ORDER_DELIVERED → Push al repartidor.
  *
- * POO â€” PatrÃ³n Strategy (implementaciÃ³n concreta):
+ * POO — Patrón Strategy (implementación concreta):
  * Cuando el pedido es entregado, construye un NotificationCommand
- * de tipo PUSH dirigido al repartidor que realizÃ³ la entrega.
+ * de tipo PUSH dirigido al repartidor que realizó la entrega.
  *
- * Routing: notify.driver.push â†’ driver_push_queue â†’ push_notification_worker
+ * Routing: notify.driver.push → driver_push_queue → push_notification_worker
  */
 @Component
 public class OrderDeliveredPushStrategy implements NotificationStrategy {
@@ -47,7 +47,7 @@ public class OrderDeliveredPushStrategy implements NotificationStrategy {
                     objectMapper.readValue(envelope.payload(), OrderDeliveredPayload.class);
 
             String mensaje = String.format(
-                    "Â¡Entrega completada! Pedido %s entregado exitosamente. Â¡Buen trabajo, %s!",
+                    "¡Entrega completada! Pedido %s entregado exitosamente. ¡Buen trabajo, %s!",
                     envelope.orderId(), payload.driverName()
             );
 
@@ -60,15 +60,14 @@ public class OrderDeliveredPushStrategy implements NotificationStrategy {
                     Instant.now()
             );
 
-            log.info("[notification_router] Push preparado â€” orderId={} driverId={}",
+            log.info("[notification_router] Push preparado — orderId={} driverId={}",
                     envelope.orderId(), payload.driverId());
             return Optional.of(comando);
 
         } catch (Exception e) {
-            log.error("[notification_router] Error construyendo Push â€” orderId={}",
+            log.error("[notification_router] Error construyendo Push — orderId={}",
                     envelope.orderId(), e);
             return Optional.empty();
         }
     }
 }
-

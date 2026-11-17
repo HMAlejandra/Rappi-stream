@@ -2,8 +2,8 @@ package com.rappistream.orderprocessor.infrastructure.config;
 
 import com.rappistream.orderprocessor.domain.model.Driver;
 import com.rappistream.orderprocessor.domain.port.OrderRepositoryPort;
-import com.rappistream.orderprocessor.service.strategy.DriverAssignmentStrategy;
-import com.rappistream.orderprocessor.service.strategy.RoundRobinAssignmentStrategy;
+import com.rappistream.orderprocessor.domain.strategy.DriverAssignmentStrategy;
+import com.rappistream.orderprocessor.domain.strategy.RoundRobinAssignmentStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Bean;

@@ -1,4 +1,4 @@
-package com.rappistream.notificationrouter.service.strategy;
+package com.rappistream.notificationrouter.application.strategy;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rappistream.common.commands.NotificationCommand;
@@ -6,7 +6,7 @@ import com.rappistream.common.enums.NotificationType;
 import com.rappistream.common.enums.OrderEventType;
 import com.rappistream.common.events.OrderEventEnvelope;
 import com.rappistream.common.events.payloads.DriverArrivingPayload;
-import com.rappistream.notificationrouter.service.NotificationStrategy;
+import com.rappistream.notificationrouter.domain.strategy.NotificationStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
@@ -16,13 +16,13 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Estrategia concreta: DRIVER_ARRIVING â†’ SMS al cliente.
+ * Estrategia concreta: DRIVER_ARRIVING → SMS al cliente.
  *
- * POO â€” PatrÃ³n Strategy (implementaciÃ³n concreta):
- * Cuando el repartidor estÃ¡ llegando, construye un NotificationCommand
+ * POO — Patrón Strategy (implementación concreta):
+ * Cuando el repartidor está llegando, construye un NotificationCommand
  * de tipo SMS dirigido al cliente del pedido.
  *
- * Routing: notify.client.sms â†’ client_sms_queue â†’ sms_worker
+ * Routing: notify.client.sms → client_sms_queue → sms_worker
  */
 @Component
 public class DriverArrivingSmsStrategy implements NotificationStrategy {
@@ -47,7 +47,7 @@ public class DriverArrivingSmsStrategy implements NotificationStrategy {
                     objectMapper.readValue(envelope.payload(), DriverArrivingPayload.class);
 
             String mensaje = String.format(
-                    "Tu repartidor %s estÃ¡ llegando. Tiempo estimado: %s.",
+                    "Tu repartidor %s está llegando. Tiempo estimado: %s.",
                     payload.driverName(), payload.estimatedArrival()
             );
 
@@ -60,15 +60,14 @@ public class DriverArrivingSmsStrategy implements NotificationStrategy {
                     Instant.now()
             );
 
-            log.info("[notification_router] SMS preparado â€” orderId={} driver={}",
+            log.info("[notification_router] SMS preparado — orderId={} driver={}",
                     envelope.orderId(), payload.driverName());
             return Optional.of(comando);
 
         } catch (Exception e) {
-            log.error("[notification_router] Error construyendo SMS â€” orderId={}",
+            log.error("[notification_router] Error construyendo SMS — orderId={}",
                     envelope.orderId(), e);
             return Optional.empty();
         }
     }
 }
-

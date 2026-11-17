@@ -1,8 +1,9 @@
-package com.rappistream.notificationrouter.service;
+package com.rappistream.notificationrouter.domain.strategy;
 
 import com.rappistream.common.enums.OrderEventType;
 import com.rappistream.common.events.OrderEventEnvelope;
 import com.rappistream.common.commands.NotificationCommand;
+
 import java.util.Optional;
 
 /**

@@ -1,4 +1,4 @@
-package com.rappistream.orderprocessor.service.strategy;
+package com.rappistream.orderprocessor.domain.strategy;
 
 import com.rappistream.orderprocessor.domain.model.Driver;
 import com.rappistream.orderprocessor.domain.model.Pedido;
@@ -10,18 +10,18 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * Pruebas unitarias del PatrÃ³n Strategy â€” RoundRobinAssignmentStrategy.
+ * Pruebas unitarias del Patrón Strategy — RoundRobinAssignmentStrategy.
  *
  * Estrategia de prueba:
  * Sin Spring, sin base de datos. Instanciamos directamente la Strategy
  * con una lista de drivers en memoria y verificamos el comportamiento.
- * PatrÃ³n AAA: Arrange / Act / Assert.
+ * Patrón AAA: Arrange / Act / Assert.
  */
-@DisplayName("RoundRobinAssignmentStrategy â€” PatrÃ³n Strategy")
+@DisplayName("RoundRobinAssignmentStrategy — Patrón Strategy")
 class RoundRobinAssignmentStrategyTest {
 
     private Pedido nuevoPedido(String id) {
-        return new Pedido(id, "Cliente Test", "Producto", 1, "DirecciÃ³n Test");
+        return new Pedido(id, "Cliente Test", "Producto", 1, "Dirección Test");
     }
 
     @Test
@@ -51,7 +51,7 @@ class RoundRobinAssignmentStrategyTest {
         List<Driver> drivers = List.of(
                 new Driver("D-001", "Carlos", true),
                 new Driver("D-002", "Laura",  true),
-                new Driver("D-003", "AndrÃ©s", true)
+                new Driver("D-003", "Andrés", true)
         );
         RoundRobinAssignmentStrategy strategy = new RoundRobinAssignmentStrategy(drivers);
 
@@ -80,7 +80,7 @@ class RoundRobinAssignmentStrategyTest {
         List<Driver> drivers = List.of(
                 new Driver("D-001", "Carlos",  false), // no disponible
                 new Driver("D-002", "Laura",   true),  // disponible
-                new Driver("D-003", "AndrÃ©s",  false)  // no disponible
+                new Driver("D-003", "Andrés",  false)  // no disponible
         );
         RoundRobinAssignmentStrategy strategy = new RoundRobinAssignmentStrategy(drivers);
         Pedido pedido = nuevoPedido("order-001");
@@ -110,21 +110,21 @@ class RoundRobinAssignmentStrategyTest {
     }
 
     @Test
-    @DisplayName("Debe lanzar IllegalArgumentException con lista vacÃ­a en constructor")
+    @DisplayName("Debe lanzar IllegalArgumentException con lista vacía en constructor")
     void debeLanzarExcepcionConListaVacia() {
         assertThrows(IllegalArgumentException.class, () ->
                 new RoundRobinAssignmentStrategy(List.of()));
     }
 
     @Test
-    @DisplayName("Debe lanzar NullPointerException con lista nula en constructor")
+    @DisplayName("Debe lanzar IllegalArgumentException con lista nula en constructor")
     void debeLanzarExcepcionConListaNula() {
         assertThrows(IllegalArgumentException.class, () ->
                 new RoundRobinAssignmentStrategy(null));
     }
 
     @Test
-    @DisplayName("El pedido debe transicionar a ASIGNADO despuÃ©s de la asignaciÃ³n")
+    @DisplayName("El pedido debe transicionar a ASIGNADO después de la asignación")
     void pedidoDebeQuedarEnEstadoAsignado() {
         // Arrange
         List<Driver> drivers = List.of(new Driver("D-001", "Carlos", true));
@@ -141,4 +141,3 @@ class RoundRobinAssignmentStrategyTest {
         assertNotNull(pedido.getDriverName());
     }
 }
-
