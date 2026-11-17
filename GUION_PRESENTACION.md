@@ -1,125 +1,164 @@
 # Guión de Presentación — Juliana
 ## Rappi-Stream | 15 minutos en total | 4 turnos
 
-> **Cómo usar este documento:** Cada sección tiene:
-> - 🗣️ Las palabras EXACTAS que dices (en negrita la frase clave)
-> - 📦 El ejemplo real que ocurre cuando María García pide una Hamburguesa Doble
-> - 🖥️ Qué abrir/mostrar/ejecutar ANTES de hablar
-> - ❓ Respuestas a las preguntas que te van a hacer
+> Cada sección tiene:
+> - 🗣️ Las palabras exactas que dices
+> - 📦 Qué está pasando con el pedido de María García en ese momento
+> - 💻 El código con cada línea explicada
+> - ❓ Preguntas del profesor y cómo responderlas
 
 ---
 
-## EL EJEMPLO QUE USAS EN TODA LA PRESENTACIÓN
+## EL HILO CONDUCTOR DE TODA LA PRESENTACIÓN
 
-> María García entra al dashboard en `http://localhost:8087`, hace click en **+ Nuevo Pedido**,
-> elige **Hamburguesa Doble**, escribe su nombre y dirección, y hace click en **Pedir ahora**.
-> En los próximos 23 segundos, el sistema procesa el pedido automáticamente y el dashboard
+> **María García** entra al dashboard en `http://localhost:8087`, hace click en
+> **+ Nuevo Pedido**, elige **Hamburguesa Doble**, escribe su nombre y dirección,
+> y hace click en **Pedir ahora**.
+> En los próximos **22 segundos** el sistema procesa todo automáticamente:
+> asigna a Carlos Mendoza, simula la ruta, envía notificaciones, y el dashboard
 > se actualiza en tiempo real sin que ella recargue la página.
 
-Ese recorrido completo es lo que explicas en cada turno.
+Ese recorrido es lo que explicas en cada turno.
 
 ---
 
 ## TURNO 2 — Arquitectura e infraestructura
 
 ### Prepara esto ANTES de hablar
-Abre dos terminales: una para docker y otra lista.
+Abre dos terminales listas.
 
 ---
 
 ### 🗣️ Lo que dices
 
-> "El sistema usa **dos brokers de mensajería con propósitos distintos**.
-> Cuando María pide su hamburguesa, el comando 'crear pedido' va por **RabbitMQ** — porque
-> solo un servicio debe procesarlo. Una vez procesado, cada cambio de estado — CREADO,
-> ASIGNADO, EN_CAMINO, LLEGANDO, ENTREGADO — se publica como evento inmutable en **Kafka**.
-> Tres servicios distintos lo leen al mismo tiempo: el simulador del repartidor, el router
-> de notificaciones, y el aggregator del dashboard. Cada uno con su propio grupo de consumidores
-> e independientemente del otro."
+> "Cuando María pide su hamburguesa, su pedido pasa por **dos brokers de mensajería
+> con propósitos distintos**. El comando 'crear pedido' va por **RabbitMQ** porque
+> solo un servicio lo debe procesar. Luego, cada cambio de estado — CREADO, ASIGNADO,
+> EN_CAMINO, LLEGANDO, ENTREGADO — se publica como evento en **Kafka**, donde tres
+> servicios distintos lo leen al mismo tiempo e independientemente: el simulador del
+> repartidor, el router de notificaciones, y el aggregator del dashboard."
 
 ---
 
-### 📦 El ejemplo en el flujo real
+### 📦 El pedido de María en este turno
 
 ```
 María hace click "Pedir ahora"
         │
         ▼
-  [RabbitMQ - new_orders_queue]
-  "Crear pedido de Hamburguesa para María García"
-  → Solo lo toma order_processor (Work Queue: uno solo)
+  RabbitMQ — new_orders_queue
+  Mensaje: "Crear pedido de Hamburguesa para María García, Calle 100"
+  → solo lo toma order_processor (Work Queue)
         │
         ▼
-  order_processor crea el pedido y publica en Kafka:
+  order_processor publica en Kafka:
+  Evento #1 clave="abc-123" → ORDER_CREATED
+  Evento #2 clave="abc-123" → DRIVER_ASSIGNED (Carlos D-001)
 
-  Evento 1 → topic order_events, clave="abc-123"  → ORDER_CREATED
-  Evento 2 → topic order_events, clave="abc-123"  → DRIVER_ASSIGNED (Carlos Mendoza, D-001)
-
-  Tres servicios leen esos mismos eventos INDEPENDIENTEMENTE:
-  ┌──────────────────────────────────────────────────────────┐
-  │ driver_simulator  → "asignaron un repartidor, simulo ruta"│
-  │ notification_router → "el repartidor llega, envío SMS"   │
-  │ dashboard_aggregator → "actualizo el dashboard de María" │
-  └──────────────────────────────────────────────────────────┘
+  Los 3 consumidores de Kafka reciben AMBOS eventos:
+  ┌── driver_simulator     → "fue asignado, inicio la simulación de ruta"
+  ├── notification_router  → "Carlos llega, preparo el SMS para María"
+  └── dashboard_aggregator → "actualizo el estado en el dashboard de María"
 ```
 
 ---
 
 ### 🖥️ Muestra 1 — `docker compose ps`
 
-Ejecuta en terminal:
 ```bash
 docker compose ps
 ```
 
-**Señala esto en la salida:**
-- No hay ningún contenedor que diga `zookeeper`. Dices:
-  *"Usamos Kafka en modo **KRaft** — sin ZooKeeper. El broker gestiona sus propios metadatos.
-  Antes Kafka necesitaba ZooKeeper para funcionar, en versiones modernas ya no."*
-- Señala `rappi_kafka_init` con estado `Exited (0)`:
-  *"Este fue el init container que corrió una sola vez, creó el topic `order_events`
-  con 3 particiones, y terminó exitosamente. Los microservicios esperaron a que terminara
-  antes de arrancar."*
+**Señala en la salida:**
+- No hay `zookeeper` → *"Kafka en modo KRaft: sin ZooKeeper, el broker gestiona sus propios metadatos."*
+- `rappi_kafka_init` aparece `Exited (0)` → *"Init container que creó el topic y terminó exitosamente."*
 
 ---
 
 ### 🖥️ Muestra 2 — Particiones de Kafka
 
-Ejecuta:
 ```bash
 docker exec rappi_kafka kafka-topics --bootstrap-server kafka:9092 --describe --topic order_events
 ```
 
-**La salida se ve así:**
+**Salida:**
 ```
 Topic: order_events   PartitionCount: 3   ReplicationFactor: 1
-  Partition: 0   Leader: 1   Replicas: 1
-  Partition: 1   Leader: 1   Replicas: 1
-  Partition: 2   Leader: 1   Replicas: 1
+  Partition: 0   Leader: 1
+  Partition: 1   Leader: 1
+  Partition: 2   Leader: 1
 ```
 
-**Lo que dices señalando la pantalla:**
-> "Existen **3 particiones**. La clave de partición es el `orderId` — el UUID del pedido de María.
-> Kafka calcula: `hash('abc-123-pedido-maria') % 3 = 1`, y todos los eventos de ese pedido
-> van siempre a la **partición 1**. Eso garantiza el orden cronológico estricto:
-> CREADO → ASIGNADO → EN_CAMINO → LLEGANDO → ENTREGADO.
-> Nunca puede llegar ENTREGADO antes que CREADO para el mismo pedido."
+**Lo que dices:**
+> "3 particiones. La clave de partición es el `orderId` — el UUID del pedido de María.
+> Kafka calcula `hash(orderId) % 3` y todos sus eventos van siempre a la misma partición.
+> Eso garantiza el orden: CREADO llega antes que DRIVER_ASSIGNED, que llega antes que
+> DELIVERY_STARTED. Nunca puede llegar ENTREGADO antes de CREADO para el mismo pedido."
 
 ---
 
-### ❓ Preguntas que te harán y cómo responder
+### 💻 El código que explica esto
+
+**Archivo:** `order_processor/src/main/java/.../infrastructure/kafka/KafkaOrderEventPublisher.java`
+
+Busca el método `publicar` (al final del archivo):
+
+```java
+// LÍNEA 83: orderId es la CLAVE DE PARTICIÓN
+//           Todos los eventos del pedido de María usan el mismo "abc-123"
+//           → van siempre a la misma partición → llegan en orden
+kafkaTemplate.send(TOPIC,   orderId,     envelopeJson);
+//                 ↑         ↑            ↑
+//           "order_events"  "abc-123"    el mensaje JSON completo
+```
+
+Busca el método `publicarOrderCreated`:
+
+```java
+// LÍNEA 54: construye el JSON del payload con los datos de María
+String payloadJson = String.format(
+    "{\"orderId\":\"%s\",\"customerName\":\"%s\",\"product\":\"%s\"," +
+     "\"quantity\":%d,\"address\":\"%s\"}",
+    pedido.getId(),           // "abc-123-pedido-maria"
+    customerName,             // "María García"
+    product,                  // "Hamburguesa Doble"
+    pedido.getQuantity(),     // 1
+    address                   // "Calle 100 #15-30, Bogotá"
+);
+// Este JSON es el "payload" que viajará dentro del envelope de Kafka
+```
+
+**Archivo:** `common/src/main/java/.../events/OrderEventEnvelope.java`
+
+```java
+// Este record es el "sobre" que envuelve TODOS los eventos de Kafka
+public record OrderEventEnvelope(
+    String eventId,          // línea 44: UUID único — clave de idempotencia en BD
+    String orderId,          // línea 50: "abc-123" — clave de partición Kafka
+    OrderEventType eventType,// línea 53: ORDER_CREATED, DRIVER_ASSIGNED, etc.
+    Instant timestamp,       // línea 56: cuándo ocurrió el evento
+    String payload           // línea 65: el JSON con los datos específicos
+)
+// Ejemplo para el pedido de María:
+// eventId:   "evt-uuid-001"
+// orderId:   "abc-123-pedido-maria"
+// eventType: ORDER_CREATED
+// timestamp: 2026-11-12T19:57:23Z
+// payload:   {"orderId":"abc-123","customerName":"María García",...}
+```
+
+---
+
+### ❓ Preguntas y respuestas
 
 **"¿Por qué 3 particiones y no 1?"**
-> "Con 1 partición, si María y Juan piden al mismo tiempo, los eventos de Juan esperan
-> a que terminen los de María. Con 3 particiones, el pedido de María va a la partición 0,
-> el de Juan a la partición 1, y se procesan en paralelo. Para un MVP universitario 3 es
-> suficiente — en producción podrían ser 12 o 24."
+> "Con 1 partición, si María y Juan piden al mismo tiempo sus eventos se procesan en cola.
+> Con 3 particiones, el pedido de María va a la partición 0 y el de Juan a la partición 1
+> — se procesan en paralelo. Para el MVP 3 es suficiente."
 
-**"¿Qué pasa si el dashboard_aggregator se reinicia mientras María espera su pedido?"**
-> "Con `auto-offset-reset=earliest`, al reiniciarse lee todos los eventos desde el principio
-> del topic y reconstruye el estado. Si el pedido de María ya tenía status ASIGNADO en Kafka,
-> el aggregator lo vuelve a procesar y lo actualiza. La verificación de idempotencia en la BD
-> — la columna `event_id UNIQUE` — evita insertar duplicados en la tabla `order_events`."
+**"¿Qué pasa si el dashboard_aggregator se reinicia mientras María espera?"**
+> "Con `auto-offset-reset=earliest` lee todos los eventos desde el principio y reconstruye
+> el estado. La columna `event_id UNIQUE` en PostgreSQL evita duplicar filas."
 
 ---
 
@@ -128,146 +167,209 @@ Topic: order_events   PartitionCount: 3   ReplicationFactor: 1
 ## TURNO 4 — RabbitMQ: Work Queue y Topic Exchange
 
 ### Prepara esto ANTES de hablar
-Abre el browser en `http://localhost:15672` (usuario: `rappi_admin`, contraseña: `rappi_rmq_2024`).
-Ve a **Exchanges** y luego a **Queues**.
+Abre `http://localhost:15672` (usuario: `rappi_admin`, pass: `rappi_rmq_2024`).
 
 ---
 
 ### 🗣️ Lo que dices — Work Queue
 
-> "Cuando María hace click en 'Pedir ahora', el `order_api` crea un `OrderCreatedCommand`
-> con el UUID del pedido, el nombre de María, 'Hamburguesa Doble', cantidad 1 y la dirección.
-> Lo publica en la cola `new_orders_queue`. Esto es el patrón **Work Queue**: si tuviéramos
-> 3 instancias del `order_processor`, el pedido de María lo tomaría **uno solo** — no los tres.
-> RabbitMQ hace round-robin automáticamente y marca el mensaje como procesado cuando el
-> worker lo confirma. Esto evita que el mismo pedido se procese dos veces y María reciba
-> dos hamburguesas cobradas."
+> "Cuando María hace click en 'Pedir ahora', el `order_api` crea un comando inmutable
+> con todos sus datos y lo publica en la cola `new_orders_queue`. Esto es el patrón
+> **Work Queue**: si hubiera 3 instancias del `order_processor`, el pedido de María
+> lo tomaría uno solo — no los tres. RabbitMQ hace round-robin automáticamente.
+> Esto evita que el mismo pedido se procese dos veces."
 
 ---
 
-### 📦 El ejemplo en código — lo que viaja por RabbitMQ
+### 📦 El pedido de María en este turno
 
-```java
-// Esto es lo que order_api publica en new_orders_queue para el pedido de María:
-OrderCreatedCommand comando = new OrderCreatedCommand(
-    "cmd-7f3a...",            // commandId — UUID único de este comando
-    "abc-123-pedido-maria",   // orderId   — UUID del pedido (generado aquí)
-    "María García",           // customerName
-    "Hamburguesa Doble",      // product
-    1,                        // quantity
-    "Calle 100 #15-30, Bogotá", // address
-    Instant.now()             // issuedAt
-);
-// Si quantity fuera 0 o negativo, el constructor compacto lanza
-// IllegalArgumentException inmediatamente — Fail-Fast.
-// El objeto inválido nunca llega a RabbitMQ.
+```
+María hace click → order_api publica esto en new_orders_queue:
 
-rabbitTemplate.convertAndSend("new_orders_queue", comando);
-// Jackson serializa el record a JSON y lo envía al broker.
+OrderCreatedCommand {
+  commandId:    "cmd-7f3a-uuid"           ← ID único de este comando
+  orderId:      "abc-123-pedido-maria"    ← ID del pedido (lo generó order_api)
+  customerName: "María García"
+  product:      "Hamburguesa Doble"
+  quantity:     1
+  address:      "Calle 100 #15-30, Bogotá"
+  issuedAt:     2026-11-12T19:57:20Z
+}
+
+Cuando Carlos llega → notification_router publica en exchange "notifications":
+  routing key: "notify.client.sms"
+  mensaje: "Tu repartidor Carlos Mendoza está llegando. Tiempo estimado: 2 minutos."
+  → va a client_sms_queue → sms_worker-1 lo procesa
+
+Cuando el pedido es entregado → notification_router publica:
+  routing key: "notify.driver.push"
+  mensaje: "¡Entrega completada! Pedido abc-123 entregado. ¡Buen trabajo, Carlos Mendoza!"
+  → va a driver_push_queue → push_notification_worker-2 lo procesa
 ```
 
 ---
 
-### 🗣️ Lo que dices — Topic Exchange
+### 💻 El código — línea por línea
 
-> "Cuando el repartidor Carlos Mendoza está llegando a la dirección de María, el `driver_simulator`
-> publica en Kafka el evento `DRIVER_ARRIVING`. El `notification_router` lo lee y necesita
-> mandar un SMS a María. Para eso usa el **Topic Exchange** llamado `notifications`.
-> Publica con la routing key `notify.client.sms`. El exchange compara contra el patrón
-> `notify.client.*` — el asterisco reemplaza exactamente una palabra — y enruta el mensaje
-> a `client_sms_queue`. Cuando el pedido se entrega, publica con `notify.driver.push`
-> y el exchange lo manda a `driver_push_queue` para notificarle a Carlos."
-
----
-
-### 📦 El ejemplo en código — lo que viaja por el Topic Exchange
+**Archivo:** `common/src/main/java/.../commands/OrderCreatedCommand.java`
 
 ```java
-// Cuando Carlos está llegando → SMS para María:
-NotificationCommand comandoSMS = new NotificationCommand(
-    "notif-uuid-001",
-    "abc-123-pedido-maria",   // orderId
-    "abc-123-pedido-maria",   // recipientId (el cliente del pedido)
-    NotificationType.SMS,
-    "Tu repartidor Carlos Mendoza está llegando. Tiempo estimado: 2 minutos.",
-    Instant.now()
-);
-rabbitTemplate.convertAndSend("notifications", "notify.client.sms", comandoSMS);
-// exchange "notifications" ve la key "notify.client.sms"
-// coincide con el patrón "notify.client.*"
-// → lo manda a client_sms_queue
-// → sms_worker-1 o sms_worker-2 lo toma (round-robin)
+// LÍNEA 23: "record" = clase inmutable de Java 17
+// Genera automáticamente: constructor, getters, equals, hashCode, toString
+// No tiene setters → una vez creado, no se puede modificar
+public record OrderCreatedCommand(
 
-// Cuando el pedido se entrega → Push para Carlos:
-NotificationCommand comandoPush = new NotificationCommand(
-    "notif-uuid-002",
-    "abc-123-pedido-maria",
-    "D-001",                  // recipientId = driverId de Carlos
-    NotificationType.PUSH,
-    "¡Entrega completada! Pedido abc-123 entregado exitosamente. ¡Buen trabajo, Carlos Mendoza!",
-    Instant.now()
-);
-rabbitTemplate.convertAndSend("notifications", "notify.driver.push", comandoPush);
-// coincide con "notify.driver.*" → va a driver_push_queue
+    String commandId,    // ID único del comando (UUID)
+    String orderId,      // ID del pedido - será clave Kafka
+    String customerName, // "María García"
+    String product,      // "Hamburguesa Doble"
+    int quantity,        // 1
+    String address,      // "Calle 100 #15-30, Bogotá"
+    Instant issuedAt     // cuándo se creó
+
+) {
+    // LÍNEA 46: "constructor compacto" — se ejecuta automáticamente al crear el record
+    // Fail-Fast: si algo es inválido, el objeto NUNCA EXISTE
+    public OrderCreatedCommand {
+
+        // LÍNEA 47: si commandId es null → NullPointerException inmediata
+        Objects.requireNonNull(commandId, "commandId no puede ser nulo");
+
+        // LÍNEA 54: si quantity es 0 o negativo → IllegalArgumentException
+        // Ejemplo: María no puede pedir -1 hamburguesas
+        if (quantity <= 0) {
+            throw new IllegalArgumentException(
+                "quantity debe ser mayor que cero, recibido: " + quantity);
+        }
+        // Si algo falla aquí, el rabbitTemplate.convertAndSend() NUNCA se ejecuta
+        // El error inválido no llega a RabbitMQ ni a ningún otro servicio
+    }
+}
+```
+
+**Archivo:** `notification_router/src/main/java/.../strategy/DriverArrivingSmsStrategy.java`
+
+```java
+// LÍNEA 36: este método responde "¿soy responsable de este evento?"
+public boolean aplica(OrderEventType eventType) {
+    return eventType == OrderEventType.DRIVER_ARRIVING;
+    // true solo cuando Carlos está llegando a casa de María
+    // false para todos los demás eventos
+}
+
+// LÍNEA 42: este método construye el SMS real para María
+public Optional<NotificationCommand> construir(OrderEventEnvelope envelope) {
+    // LÍNEA 44: deserializa el payload JSON → objeto Java
+    DriverArrivingPayload payload =
+        objectMapper.readValue(envelope.payload(), DriverArrivingPayload.class);
+    // payload.driverName()      → "Carlos Mendoza"
+    // payload.estimatedArrival() → "2 minutos"
+
+    // LÍNEA 48: construye el texto del SMS
+    String mensaje = String.format(
+        "Tu repartidor %s está llegando. Tiempo estimado: %s.",
+        payload.driverName(),       // "Carlos Mendoza"
+        payload.estimatedArrival()  // "2 minutos"
+    );
+    // resultado: "Tu repartidor Carlos Mendoza está llegando. Tiempo estimado: 2 minutos."
+
+    // LÍNEA 53: empaqueta el SMS en un NotificationCommand
+    NotificationCommand comando = new NotificationCommand(
+        UUID.randomUUID().toString(),   // ID único de esta notificación
+        envelope.orderId(),              // "abc-123-pedido-maria"
+        envelope.orderId(),              // recipientId (quién recibe)
+        NotificationType.SMS,            // tipo: SMS
+        mensaje,                         // el texto de arriba
+        Instant.now()
+    );
+
+    // LÍNEA 60: Optional.of() = "tengo un valor"
+    // Optional.empty() = "no tengo nada" (si hubiera fallado la deserialización)
+    return Optional.of(comando);
+}
+```
+
+**Archivo:** `notification_router/src/main/java/.../service/NotificationRouterService.java`
+
+```java
+// LÍNEA 38: Spring inyecta AUTOMÁTICAMENTE todas las clases @Component
+// que implementan NotificationStrategy — DriverArrivingSmsStrategy Y OrderDeliveredPushStrategy
+private final List<NotificationStrategy> estrategias;
+
+// LÍNEA 55: cuando llega un evento de Kafka, itera las estrategias
+public void procesarEvento(OrderEventEnvelope envelope) {
+    for (NotificationStrategy estrategia : estrategias) {
+        // LÍNEA 56: pregunta a cada estrategia si es su responsabilidad
+        if (estrategia.aplica(envelope.eventType())) {
+            // Si llega DRIVER_ARRIVING:
+            //   DriverArrivingSmsStrategy.aplica()   → true  → entra aquí
+            //   OrderDeliveredPushStrategy.aplica()  → false → lo salta
+
+            Optional<NotificationCommand> comando = estrategia.construir(envelope);
+            // construye: "Tu repartidor Carlos Mendoza está llegando..."
+
+            comando.ifPresent(cmd -> {
+                // LÍNEA 61: decide la routing key según el tipo
+                String routingKey = routingKeyPara(cmd.type());
+                // cmd.type() = SMS → routingKey = "notify.client.sms"
+
+                // LÍNEA 63: publica en el Topic Exchange de RabbitMQ
+                rabbitTemplate.convertAndSend(
+                    "notifications",     // nombre del exchange
+                    "notify.client.sms", // routing key
+                    cmd                  // el NotificationCommand serializado a JSON
+                );
+                // El exchange compara "notify.client.sms" con el patrón "notify.client.*"
+                // coincide → manda a client_sms_queue → sms_worker-1 lo consume
+            });
+            return; // una sola estrategia por evento — no sigue iterando
+        }
+    }
+}
 ```
 
 ---
 
-### 🗣️ Lo que dices — Réplicas y balanceo
+### 🖥️ Muestra 1 — Panel RabbitMQ en `http://localhost:15672`
 
-> "Los workers tienen `deploy.replicas: 2` en el docker-compose, lo que significa
-> **dos contenedores del mismo servicio corriendo al mismo tiempo**. Ambos consumen
-> de la misma queue. Si María y Juan piden al mismo tiempo y los dos reciben SMS cuando
-> el repartidor llega, `sms_worker-1` procesa el de María y `sms_worker-2` procesa el
-> de Juan — en paralelo, sin que uno espere al otro. Esto es escalabilidad horizontal."
-
----
-
-### 🖥️ Muestra 1 — Panel RabbitMQ
-
-En `http://localhost:15672`:
-
-1. Click en **Exchanges** → muestra el exchange `notifications` de tipo `topic`
+1. **Exchanges** → muestra `notifications` de tipo `topic`
 2. Click en `notifications` → muestra los bindings:
-   - `notify.client.*` → `client_sms_queue`  ← *"para SMS al cliente — María"*
-   - `notify.driver.*` → `driver_push_queue` ← *"para Push al repartidor — Carlos"*
-3. Dices: *"El asterisco es un wildcard que reemplaza exactamente una palabra.
-   `notify.client.sms` coincide con `notify.client.*`. Si mañana agregamos email,
-   `notify.client.email` también coincidiría sin cambiar nada del exchange."*
+   - `notify.client.*` → `client_sms_queue` ← *"para SMS a María"*
+   - `notify.driver.*` → `driver_push_queue` ← *"para Push a Carlos"*
+3. Di: *"El `*` reemplaza exactamente una palabra. `notify.client.sms` coincide.
+   Si mañana agregamos email, `notify.client.email` también coincidiría sin tocar el exchange."*
 
 ---
 
-### 🖥️ Muestra 2 — Réplicas en docker compose ps
+### 🖥️ Muestra 2 — Réplicas
 
 ```bash
 docker compose ps
 ```
 
-**Señala en la salida:**
+Señala:
 ```
-rappi-stream-sms_worker-1                Up   ...
-rappi-stream-sms_worker-2                Up   ...
-rappi-stream-push_notification_worker-1  Up   ...
-rappi-stream-push_notification_worker-2  Up   ...
+rappi-stream-sms_worker-1                Up
+rappi-stream-sms_worker-2                Up
+rappi-stream-push_notification_worker-1  Up
+rappi-stream-push_notification_worker-2  Up
 ```
 
-> "Dos instancias de cada worker. No tienen `container_name` fijo porque Docker no puede
-> tener dos contenedores con el mismo nombre — les asigna sufijo automático -1 y -2."
+> "Dos instancias de cada worker. Si María y Juan reciben SMS al mismo tiempo,
+> `sms_worker-1` procesa el de María y `sms_worker-2` el de Juan — en paralelo."
 
 ---
 
-### ❓ Preguntas que te harán y cómo responder
+### ❓ Preguntas y respuestas
 
 **"¿Por qué no usar Kafka para las notificaciones también?"**
-> "Kafka es ideal cuando múltiples servicios necesitan el mismo evento — como los 3 servicios
-> que leen `order_events`. Las notificaciones van a un destinatario específico y deben
-> procesarse exactamente una vez: el SMS de María lo manda un solo worker, no todos.
-> RabbitMQ con Topic Exchange es el patrón correcto para ese enrutamiento selectivo."
+> "Kafka es para cuando múltiples servicios necesitan el mismo evento. Las notificaciones
+> van a un destinatario específico y deben procesarse exactamente una vez. RabbitMQ con
+> Topic Exchange es el patrón correcto para ese enrutamiento selectivo."
 
-**"¿Qué pasa si un sms_worker cae justo cuando iba a notificarle a María?"**
-> "El mensaje queda en la queue de RabbitMQ — las queues son durables, sobreviven reinicios.
-> Cuando el worker se recupera, toma el mensaje y manda el SMS. María lo recibe con un
-> pequeño retraso pero sin perderlo."
+**"¿Qué pasa si un sms_worker cae?"**
+> "El mensaje queda en la queue — las queues son durables. Cuando el worker se recupera,
+> toma el mensaje. María lo recibe con pequeño retraso, pero no se pierde."
 
 ---
 
@@ -276,420 +378,400 @@ rappi-stream-push_notification_worker-2  Up   ...
 ## TURNO 6 — Patrón Strategy y DIP
 
 ### Prepara esto ANTES de hablar
-Abre en el editor estos archivos en tabs (en este orden):
-1. `order_processor/src/main/java/.../domain/strategy/DriverAssignmentStrategy.java`
-2. `order_processor/src/main/java/.../domain/strategy/RoundRobinAssignmentStrategy.java`
-3. `order_processor/src/main/java/.../application/OrderProcessorService.java`
-4. `notification_router/src/main/java/.../strategy/NotificationStrategy.java`
-5. `notification_router/src/main/java/.../strategy/DriverArrivingSmsStrategy.java`
-6. `notification_router/src/main/java/.../strategy/OrderDeliveredPushStrategy.java`
-7. `notification_router/src/main/java/.../service/NotificationRouterService.java`
+Abre estos archivos en tabs en el editor:
+1. `.../domain/strategy/DriverAssignmentStrategy.java`
+2. `.../domain/strategy/RoundRobinAssignmentStrategy.java`
+3. `.../application/OrderProcessorService.java`
+4. `.../notificationrouter/strategy/NotificationStrategy.java`
+5. `.../strategy/DriverArrivingSmsStrategy.java`
+6. `.../strategy/OrderDeliveredPushStrategy.java`
+7. `.../service/NotificationRouterService.java`
 
 ---
 
-### 🖥️ Muestra 1 — La interfaz Strategy (DriverAssignmentStrategy)
+### 🗣️ Lo que dices — Strategy en order_processor
 
-**Archivo:** `DriverAssignmentStrategy.java`
-
-```java
-public interface DriverAssignmentStrategy {
-    void asignar(Pedido pedido);  // ← señala esta línea
-}
-```
-
-**Lo que dices:**
-> "Esta es la interfaz del patrón Strategy. Un solo método. Cuando llega el pedido de María,
-> el `OrderProcessorService` llama a `estrategia.asignar(pedido)` sin saber si la
-> implementación es RoundRobin, por cercanía, o por calificación.
-> Para cambiar cómo se asignan los repartidores, solo se crea una nueva clase que
-> implemente esta interfaz. El servicio **no cambia ni una línea**."
+> "Para asignar a Carlos Mendoza al pedido de María usamos el **patrón Strategy**.
+> El `OrderProcessorService` llama a `estrategia.asignar(pedido)` sin saber cómo
+> funciona la asignación. Hoy es RoundRobin. Mañana podría ser por cercanía.
+> El servicio no cambia."
 
 ---
 
-### 📦 El ejemplo — qué pasa cuando María pide su hamburguesa
+### 📦 El pedido de María en este turno
 
 ```
-Pedido de María llega al OrderProcessorService.
-
-El servicio llama: estrategiaAsignacion.asignar(pedidoDeMaría)
+Pedido de María llega → OrderProcessorService llama:
+  estrategiaAsignacion.asignar(pedidoDeMaría)
 
 Internamente, RoundRobinAssignmentStrategy hace:
   cursor = 0 (primer pedido del día)
   disponibles = [Carlos D-001, Laura D-002, Andrés D-003, Valentina D-004, Miguel D-005]
-  índice = abs(0 % 5) = 0  →  selecciona Carlos Mendoza (D-001)
+  índice = abs(0 % 5) = 0 → selecciona Carlos Mendoza (D-001)
   pedido.asignarRepartidor("D-001", "Carlos Mendoza")
 
-Si Juan pide después:
-  cursor = 1
-  índice = abs(1 % 5) = 1  →  selecciona Laura Rodríguez (D-002)
-
-Si luego pide Ana:
-  cursor = 2  →  Andrés Torres (D-003)
-  ... y así rota circularmente.
+Segundo pedido (Juan): cursor=1 → Laura D-002
+Tercer pedido (Ana):   cursor=2 → Andrés D-003
+Cuarto pedido:         cursor=3 → Valentina D-004
+Quinto pedido:         cursor=4 → Miguel D-005
+Sexto pedido:          cursor=5, abs(5%5)=0 → vuelve a Carlos
 ```
 
 ---
 
-### 🖥️ Muestra 2 — La implementación (RoundRobinAssignmentStrategy)
+### 💻 El código — línea por línea
+
+**Archivo:** `DriverAssignmentStrategy.java`
+
+```java
+// Esta es la INTERFAZ del patrón Strategy
+// Define el CONTRATO — qué debe hacer toda estrategia de asignación
+public interface DriverAssignmentStrategy {
+
+    // ÚNICA LÍNEA: un solo método
+    // "Dado este pedido, asigna un repartidor disponible"
+    void asignar(Pedido pedido);
+
+    // Si no hay repartidores → lanza IllegalStateException
+    // Si hay → llama a pedido.asignarRepartidor() internamente
+}
+// OrderProcessorService depende de esta interfaz, NO de RoundRobin directamente
+// Cambiar de estrategia = cambiar el @Bean en DomainConfig, no el servicio
+```
 
 **Archivo:** `RoundRobinAssignmentStrategy.java`
 
-**Señala el `AtomicInteger` (línea 32):**
 ```java
-private final AtomicInteger cursor = new AtomicInteger(0);
-```
+// LÍNEA 1: implementa la interfaz → es UNA estrategia concreta posible
+public class RoundRobinAssignmentStrategy implements DriverAssignmentStrategy {
 
-**Lo que dices:**
-> "El cursor es un `AtomicInteger` — una variable entera **thread-safe**.
-> Si María y Juan hacen click en 'Pedir ahora' exactamente al mismo tiempo, dos hilos
-> distintos ejecutan `cursor.getAndIncrement()` simultáneamente.
-> `AtomicInteger` garantiza que uno obtiene el 0 y el otro el 1 — nunca los dos el 0.
-> Sin esto, ambos pedidos se asignarían a Carlos y Laura se quedaría sin trabajo."
+    // LÍNEA 15: lista inmutable de repartidores (cargada de la BD al arrancar)
+    private final List<Driver> repartidores;
+    // repartidores = [Carlos D-001, Laura D-002, Andrés D-003, Valentina D-004, Miguel D-005]
 
-**Señala el `.filter` (línea 46):**
-```java
-List<Driver> disponibles = repartidores.stream()
-        .filter(Driver::isAvailable)
-        .toList();
-```
-> "Solo considera repartidores disponibles. Si Carlos no está disponible ese día,
-> simplemente no aparece en la lista y el Round-Robin lo salta."
+    // LÍNEA 21: AtomicInteger = contador thread-safe
+    // "thread-safe" = si dos pedidos llegan al mismo tiempo (dos hilos),
+    // cada uno obtiene un número diferente sin pisarse
+    private final AtomicInteger cursor = new AtomicInteger(0);
+    // Sin AtomicInteger: ambos pedidos podrían leer cursor=0 → ambos van a Carlos
+    // Con AtomicInteger: uno lee 0 (Carlos) y el otro lee 1 (Laura), garantizado
 
-**Señala `pedido.asignarRepartidor` (línea 52):**
-```java
-pedido.asignarRepartidor(seleccionado.getId(), seleccionado.getName());
-// En este caso: pedido.asignarRepartidor("D-001", "Carlos Mendoza")
-```
-> "Llama al método de negocio del pedido, que activa el **patrón State** internamente:
-> el pedido está en `EstadoCreado`, que es el único estado desde donde se puede asignar
-> repartidor. El pedido transiciona a `EstadoAsignado`."
+    @Override
+    public void asignar(Pedido pedido) {
 
----
+        // LÍNEA 37: filtra solo los disponibles
+        // Si Carlos no está disponible ese día, simplemente no aparece
+        List<Driver> disponibles = repartidores.stream()
+                .filter(Driver::isAvailable)   // solo los que tienen available=true
+                .toList();
 
-### 🖥️ Muestra 3 — El servicio que NO sabe nada de Kafka ni JPA
+        // LÍNEA 42: si nadie está disponible → falla inmediatamente
+        if (disponibles.isEmpty()) {
+            throw new IllegalStateException(
+                "No hay repartidores disponibles para el pedido: " + pedido.getId());
+        }
 
-**Archivo:** `OrderProcessorService.java`
+        // LÍNEA 47: selección circular
+        // cursor.getAndIncrement() → lee el valor actual Y lo incrementa atómicamente
+        // Primer pedido (María):  cursor era 0 → getAndIncrement() devuelve 0, deja cursor=1
+        // Segundo pedido (Juan):  cursor era 1 → getAndIncrement() devuelve 1, deja cursor=2
+        // abs(...) → por si el número se vuelve negativo en contadores muy grandes
+        // % disponibles.size() → módulo = vuelta circular (5%5=0, vuelve al primero)
+        int indice = Math.abs(cursor.getAndIncrement() % disponibles.size());
+        Driver seleccionado = disponibles.get(indice);
+        // Para María: indice=0, seleccionado = Carlos Mendoza (D-001)
 
-**Señala las tres dependencias (líneas 47-50):**
-```java
-private final OrderRepositoryPort    repositorio;            // interfaz — no JpaRepository
-private final OrderEventPublisherPort publicador;            // interfaz — no KafkaTemplate
-private final DriverAssignmentStrategy estrategiaAsignacion; // interfaz — no RoundRobin
-```
-
-**Lo que dices:**
-> "Este servicio tiene **tres dependencias — todas son interfaces**.
-> No importa `KafkaTemplate`, no importa `JpaRepository`, no importa `RoundRobinAssignmentStrategy`.
-> Solo conoce contratos abstractos. Spring inyecta las implementaciones concretas al arrancar."
-
-**Señala el flujo del pedido de María (líneas 70-100):**
-```java
-// 1. Crear el pedido de María en dominio (Fail-Fast)
-Pedido pedido = new Pedido(
-    "abc-123-pedido-maria",
-    "María García",
-    "Hamburguesa Doble",
-    1,
-    "Calle 100 #15-30, Bogotá"
-);  // Si cualquier campo es inválido → IllegalArgumentException aquí mismo
-
-// 2. Guardar en PostgreSQL: INSERT INTO orders (id, customer_name, ...) VALUES (...)
-repositorio.guardar(pedido);
-
-// 3. Publicar en Kafka: order_events, clave="abc-123-pedido-maria", tipo=ORDER_CREATED
-publicador.publicarOrderCreated(pedido);
-
-// 3.5 Espera 3 segundos → el dashboard muestra "Buscando repartidor..."
-Thread.sleep(3000);
-
-// 4. Asignar Carlos Mendoza (RoundRobin) → pedido transiciona CREADO→ASIGNADO
-estrategiaAsignacion.asignar(pedido);
-
-// 5. UPDATE orders SET status='ASIGNADO', driver_id='D-001' WHERE id='abc-123'
-repositorio.actualizar(pedido);
-
-// 6. Publicar en Kafka: order_events, clave="abc-123", tipo=DRIVER_ASSIGNED
-publicador.publicarDriverAssigned(pedido);
-```
-
-> "Paso a paso el procesamiento del pedido de María. Si mañana cambiamos Kafka por otro
-> broker, solo se reemplaza la implementación de `OrderEventPublisherPort`.
-> **Este servicio no cambia una línea.**"
-
-**Señala el constructor (líneas 56-62):**
-```java
-public OrderProcessorService(OrderRepositoryPort repositorio,
-                              OrderEventPublisherPort publicador,
-                              DriverAssignmentStrategy estrategiaAsignacion) {
-```
-> "Inyección **estricta por constructor**. No hay `@Autowired` en campos.
-> Las dependencias son `final` — no se pueden cambiar después de crear el objeto.
-> Esto también hace que las pruebas sean triviales: se pasan mocks en el constructor."
-
----
-
-### 🖥️ Muestra 4 — Strategy en notification_router
-
-**Archivo:** `NotificationStrategy.java`
-
-```java
-public interface NotificationStrategy {
-    boolean aplica(OrderEventType eventType);
-    Optional<NotificationCommand> construir(OrderEventEnvelope envelope);
-}
-```
-> "Dos métodos: `aplica` dice si esta estrategia es responsable del evento,
-> `construir` arma el comando de notificación con el mensaje real."
-
-**Archivo:** `DriverArrivingSmsStrategy.java`
-
-```java
-// Este método decide si esta estrategia actúa:
-public boolean aplica(OrderEventType eventType) {
-    return eventType == OrderEventType.DRIVER_ARRIVING;
-    // Solo actúa cuando Carlos está llegando a casa de María
-}
-```
-
-```java
-// Este método construye el SMS que recibirá María:
-String mensaje = String.format(
-    "Tu repartidor %s está llegando. Tiempo estimado: %s.",
-    payload.driverName(),       // "Carlos Mendoza"
-    payload.estimatedArrival()  // "2 minutos"
-);
-// Resultado: "Tu repartidor Carlos Mendoza está llegando. Tiempo estimado: 2 minutos."
-```
-
-**Archivo:** `OrderDeliveredPushStrategy.java`
-
-```java
-public boolean aplica(OrderEventType eventType) {
-    return eventType == OrderEventType.ORDER_DELIVERED;
-    // Solo actúa cuando el pedido de María fue entregado
-}
-```
-
-```java
-// Push que recibe Carlos cuando entregó:
-String mensaje = String.format(
-    "¡Entrega completada! Pedido %s entregado exitosamente. ¡Buen trabajo, %s!",
-    envelope.orderId(),      // "abc-123-pedido-maria"
-    payload.driverName()     // "Carlos Mendoza"
-);
-```
-
----
-
-### 🖥️ Muestra 5 — La magia de Spring inyectando la lista
-
-**Archivo:** `NotificationRouterService.java`
-
-**Señala el constructor (líneas 41-43):**
-```java
-public NotificationRouterService(List<NotificationStrategy> estrategias,
-                                  RabbitTemplate rabbitTemplate) {
-    this.estrategias = estrategias;
-```
-
-**Lo que dices:**
-> "El constructor pide `List<NotificationStrategy>`. Spring detecta que hay dos clases
-> `@Component` que implementan esa interfaz — `DriverArrivingSmsStrategy` y
-> `OrderDeliveredPushStrategy` — y las inyecta automáticamente como lista.
-> Si creamos `PedidoCreadoEmailStrategy implements NotificationStrategy @Component`,
-> Spring la incluye sin que este servicio cambie."
-
-**Señala el for loop (líneas 55-61):**
-```java
-for (NotificationStrategy estrategia : estrategias) {
-    if (estrategia.aplica(envelope.eventType())) {
-        // Cuando llega DRIVER_ARRIVING del pedido de María:
-        // DriverArrivingSmsStrategy.aplica(DRIVER_ARRIVING) = true  ✓
-        // OrderDeliveredPushStrategy.aplica(DRIVER_ARRIVING) = false ✗
-        // → solo construye el SMS, no el Push
-
-        Optional<NotificationCommand> comando = estrategia.construir(envelope);
-        // construye: "Tu repartidor Carlos Mendoza está llegando..."
-
-        comando.ifPresent(cmd -> {
-            String routingKey = routingKeyPara(cmd.type());
-            // cmd.type() = SMS → routingKey = "notify.client.sms"
-
-            rabbitTemplate.convertAndSend("notifications", routingKey, cmd);
-            // publica en exchange "notifications" con key "notify.client.sms"
-            // → va a client_sms_queue → sms_worker-1 lo toma y loguea el SMS
-        });
-        return;
+        // LÍNEA 52: llama al método de NEGOCIO del pedido
+        // Esto activa el PATRÓN STATE internamente:
+        //   pedido está en EstadoCreado
+        //   EstadoCreado.asignarRepartidor() → aplica asignación + cambia a EstadoAsignado
+        pedido.asignarRepartidor(seleccionado.getId(), seleccionado.getName());
+        // pedido.asignarRepartidor("D-001", "Carlos Mendoza")
     }
 }
 ```
-> "Sin if-else sobre tipos de evento. Cada estrategia encapsula su propia condición y lógica."
+
+**Archivo:** `OrderProcessorService.java`
+
+```java
+// LÍNEAS 47-50: las tres dependencias — TODAS son interfaces (DIP)
+private final OrderRepositoryPort    repositorio;
+//   ↑ no JpaRepository — no sabe nada de Hibernate ni PostgreSQL
+private final OrderEventPublisherPort publicador;
+//   ↑ no KafkaTemplate — no sabe nada de Kafka ni brokers
+private final DriverAssignmentStrategy estrategiaAsignacion;
+//   ↑ no RoundRobinAssignmentStrategy — no sabe qué algoritmo usa
+
+// LÍNEAS 56-61: constructor — inyección ESTRICTA por constructor
+// No hay @Autowired en campos — las dependencias son final, inmutables
+public OrderProcessorService(OrderRepositoryPort repositorio,
+                              OrderEventPublisherPort publicador,
+                              DriverAssignmentStrategy estrategiaAsignacion) {
+    this.repositorio          = repositorio;
+    this.publicador           = publicador;
+    this.estrategiaAsignacion = estrategiaAsignacion;
+}
+
+public void procesarComando(OrderCreatedCommand comando) {
+
+    // PASO 1: crear el pedido de María en dominio (Fail-Fast)
+    Pedido pedido = new Pedido(
+        "abc-123-pedido-maria", // orderId del comando
+        "María García",          // customerName
+        "Hamburguesa Doble",     // product
+        1,                       // quantity
+        "Calle 100 #15-30"       // address
+    );
+    // Si quantity fuera 0 → IllegalArgumentException aquí → proceso termina
+
+    // PASO 2: INSERT INTO orders (id, customer_name, ...) VALUES (...)
+    repositorio.guardar(pedido);
+    // repositorio es OrderRepositoryPort → Spring inyecta JpaOrderRepositoryAdapter
+    // JpaOrderRepositoryAdapter convierte Pedido → PedidoEntity → SQL
+
+    // PASO 3: publica ORDER_CREATED en Kafka (clave="abc-123-pedido-maria")
+    publicador.publicarOrderCreated(pedido);
+    // publicador es OrderEventPublisherPort → Spring inyecta KafkaOrderEventPublisher
+
+    // PASO 3.5: espera 3 segundos
+    // El dashboard muestra "Buscando repartidor..." durante este tiempo
+    Thread.sleep(assignmentDelayMs); // 3000ms
+
+    // PASO 4: RoundRobin asigna Carlos, pedido transiciona CREADO→ASIGNADO
+    estrategiaAsignacion.asignar(pedido);
+    // internamente: pedido.asignarRepartidor("D-001", "Carlos Mendoza")
+    // → EstadoCreado.asignarRepartidor() → pedido.setEstado(new EstadoAsignado())
+
+    // PASO 5: UPDATE orders SET status='ASIGNADO', driver_id='D-001' WHERE id='abc-123'
+    repositorio.actualizar(pedido);
+
+    // PASO 6: publica DRIVER_ASSIGNED en Kafka (clave="abc-123-pedido-maria")
+    publicador.publicarDriverAssigned(pedido);
+    // Este evento lo reciben: driver_simulator, notification_router, dashboard_aggregator
+}
+```
 
 ---
 
-### ❓ Preguntas que te harán y cómo responder
+### 💻 El código del patrón State — qué pasa cuando se asigna Carlos
+
+**Archivo:** `order_processor/src/main/java/.../domain/model/Pedido.java`
+
+```java
+// LÍNEA 95: método de negocio — no hay if-else sobre el estado
+public void asignarRepartidor(String driverId, String driverName) {
+    // delega al ESTADO ACTUAL del pedido
+    estadoActual.asignarRepartidor(this, driverId, driverName);
+    // Si estadoActual = EstadoCreado  → funciona, transiciona a ASIGNADO
+    // Si estadoActual = EstadoAsignado → lanza IllegalStateException
+    // Si estadoActual = EstadoEntregado → lanza IllegalStateException
+    // No hay IF. El estado actual sabe qué puede y qué no puede hacer.
+}
+```
+
+**Archivo:** `order_processor/src/main/java/.../domain/state/EstadoCreado.java`
+
+```java
+// Este archivo implementa el comportamiento cuando el pedido está en CREADO
+
+// LÍNEA 18: la ÚNICA transición válida desde CREADO
+@Override
+public void asignarRepartidor(Pedido pedido, String driverId, String driverName) {
+    // LÍNEA 20: aplica la asignación — guarda driverId y driverName en el pedido
+    pedido.aplicarAsignacion(driverId, driverName);
+    // pedido ahora tiene: driverId="D-001", driverName="Carlos Mendoza"
+
+    // LÍNEA 21: cambia el estado — el pedido ahora es EstadoAsignado
+    pedido.setEstado(new EstadoAsignado());
+    // Si María vuelve a pedir asignarRepartidor(), ahora entrará en EstadoAsignado
+    // y EstadoAsignado.asignarRepartidor() lanza IllegalStateException
+}
+
+// LÍNEAS 24-30: todas las demás operaciones NO son válidas desde CREADO
+@Override
+public void iniciarEntrega(Pedido pedido) {
+    throw new IllegalStateException(
+        "No se puede iniciar la entrega: el pedido está en estado CREADO. " +
+        "Debe asignarse un repartidor primero."
+    );
+    // Ejemplo: no puedo decir que Carlos salió del restaurante si
+    // ni siquiera le asignaron el pedido todavía
+}
+```
+
+---
+
+### ❓ Preguntas y respuestas
 
 **"¿Qué es DIP con un ejemplo del proyecto?"**
-> "`OrderProcessorService` es un módulo de alto nivel — contiene lógica de negocio.
-> `KafkaTemplate` es un módulo de bajo nivel — es infraestructura. Sin DIP,
-> `OrderProcessorService` importaría `KafkaTemplate` directamente. Con DIP, importa
-> `OrderEventPublisherPort` — una interfaz que el dominio define y la infraestructura
-> implementa. Si el profesor pregunta qué significa 'invertir la dependencia': antes la
-> flecha iba Dominio → Kafka. Ahora va Kafka → Dominio (Kafka implementa la interfaz del dominio)."
+> "`OrderProcessorService` es lógica de negocio — alto nivel.
+> `KafkaTemplate` es infraestructura — bajo nivel. Sin DIP,
+> `OrderProcessorService` importaría `KafkaTemplate` directamente.
+> Con DIP, importa `OrderEventPublisherPort` — una interfaz.
+> La flecha de dependencia se invierte: antes iba Dominio → Kafka,
+> ahora va Kafka → Dominio (Kafka implementa la interfaz del dominio)."
 
-**"¿Puedes cambiar de RoundRobin a 'asignar al repartidor más cercano'?"**
-> "Sí. Se crea `ClosestDriverStrategy implements DriverAssignmentStrategy`, se anota
-> con `@Component`, y en `DomainConfig.java` se cambia el `@Bean` para instanciarla
-> con la lógica de cercanía. `OrderProcessorService` no cambia porque solo llama
-> a `estrategiaAsignacion.asignar(pedido)` — no sabe cuál implementación usa."
-
-**"¿Qué es el patrón Strategy en una frase?"**
-> "Encapsula un algoritmo en una clase separada para que sea intercambiable.
-> El cliente depende de la interfaz, no de la implementación."
+**"¿Puedes cambiar de RoundRobin a 'asignar al más cercano'?"**
+> "Sí. Creo `ClosestDriverStrategy implements DriverAssignmentStrategy`,
+> la anoto con `@Component`, y en `DomainConfig.java` cambio el `@Bean`
+> para instanciarla. `OrderProcessorService` no cambia porque solo llama
+> a `estrategiaAsignacion.asignar(pedido)` — no sabe cuál es."
 
 ---
 
 ---
 
-## TURNO 8 — PostgreSQL, JPA y Docker/Pruebas
+## TURNO 8 — PostgreSQL, JPA, Docker y Pruebas
 
 ### Prepara esto ANTES de hablar
 Abre en el editor:
 1. `order_processor/src/main/java/.../persistence/entity/PedidoEntity.java`
 2. `order_processor/src/main/java/.../domain/model/Pedido.java`
 3. `order_processor/Dockerfile`
-
-Abre una terminal lista para ejecutar.
+4. `order_processor/src/test/.../domain/model/PedidoTest.java`
+5. `order_processor/src/test/.../application/OrderProcessorServiceTest.java`
+Abre una terminal lista.
 
 ---
 
 ### 🗣️ Lo que dices — Las 3 tablas
 
-> "PostgreSQL tiene **tres tablas**. `drivers` tiene los 5 repartidores precargados
-> por `init.sql` — Carlos, Laura, Andrés, Valentina y Miguel. `orders` tiene una fila
-> por cada pedido: cuando María pide, `order_processor` hace el INSERT con status CREADO.
-> Luego el `dashboard_aggregator` va actualizando esa misma fila: ASIGNADO, EN_CAMINO,
-> LLEGANDO, ENTREGADO. `order_events` tiene **5 filas** para el pedido de María
-> — una por cada evento — nunca se modifica, solo se inserta. La columna `event_id`
-> es UNIQUE: si el aggregator se reinicia y reprocesa los mismos eventos, no duplica filas."
+> "PostgreSQL tiene tres tablas. `drivers` tiene los 5 repartidores precargados
+> por `init.sql` — Carlos, Laura, Andrés, Valentina y Miguel. `orders` tiene
+> una fila por pedido: el `order_processor` hace el INSERT cuando María pide,
+> y el `dashboard_aggregator` hace el UPDATE en cada evento — ASIGNADO, EN_CAMINO,
+> LLEGANDO, ENTREGADO. `order_events` tiene 5 filas para el pedido de María,
+> una por cada evento, nunca se modifica. La columna `event_id` es UNIQUE
+> para garantizar idempotencia."
 
 ---
 
-### 📦 El ejemplo en la base de datos — pedido de María
+### 📦 Qué tiene la BD durante el pedido de María
 
-**Tabla `orders` durante el recorrido de María:**
 ```sql
--- Momento 1: order_processor persiste el pedido recién creado
--- INSERT hecho por order_processor
-id: 'abc-123-pedido-maria'  |  customer_name: 'María García'
-product: 'Hamburguesa Doble'  |  quantity: 1
-address: 'Calle 100 #15-30'  |  status: 'CREADO'  |  driver_id: NULL
+-- Tabla orders: una sola fila que se va actualizando
+-- Momento 1 → INSERT por order_processor
+id: 'abc-123'  |  customer_name: 'María García'  |  status: 'CREADO'   |  driver_id: NULL
 
--- Momento 2: dashboard_aggregator procesa DRIVER_ASSIGNED
--- UPDATE hecho por dashboard_aggregator
-status: 'ASIGNADO'  |  driver_id: 'D-001'
+-- Momento 2 → UPDATE por dashboard_aggregator (evento DRIVER_ASSIGNED)
+status: 'ASIGNADO'  |  driver_id: 'D-001'  (Carlos Mendoza)
 
--- Momento 3: dashboard_aggregator procesa DELIVERY_STARTED
+-- Momento 3 → UPDATE (evento DELIVERY_STARTED)
 status: 'EN_CAMINO'
 
--- Momento 4: dashboard_aggregator procesa DRIVER_ARRIVING
+-- Momento 4 → UPDATE (evento DRIVER_ARRIVING)
 status: 'LLEGANDO'
 
--- Momento 5: dashboard_aggregator procesa ORDER_DELIVERED
+-- Momento 5 → UPDATE (evento ORDER_DELIVERED)
 status: 'ENTREGADO'
-```
 
-**Tabla `order_events` — el log de auditoría:**
-```sql
--- 5 filas para el pedido de María — inmutables, nunca se modifican
-event_id              | order_id    | event_type      | event_timestamp
-'evt-001-uuid'        | 'abc-123'   | ORDER_CREATED   | 2026-11-12 19:57:23
-'evt-002-uuid'        | 'abc-123'   | DRIVER_ASSIGNED | 2026-11-12 19:57:27
-'evt-003-uuid'        | 'abc-123'   | DELIVERY_STARTED| 2026-11-12 19:57:32
-'evt-004-uuid'        | 'abc-123'   | DRIVER_ARRIVING | 2026-11-12 19:57:40
-'evt-005-uuid'        | 'abc-123'   | ORDER_DELIVERED | 2026-11-12 19:57:45
--- event_id es UNIQUE → si el aggregator reprocesa, falla el INSERT del duplicado
--- → se captura DataIntegrityViolationException → se ignora silenciosamente
+-- Tabla order_events: 5 filas inmutables (nunca se modifican)
+event_type       | event_timestamp
+ORDER_CREATED    | 2026-11-12 19:57:23  ← María hizo click
+DRIVER_ASSIGNED  | 2026-11-12 19:57:27  ← Carlos asignado (3s después)
+DELIVERY_STARTED | 2026-11-12 19:57:32  ← Carlos salió del restaurante (5s)
+DRIVER_ARRIVING  | 2026-11-12 19:57:40  ← Carlos está llegando (8s)
+ORDER_DELIVERED  | 2026-11-12 19:57:45  ← Hamburguesa entregada (5s) ← 22s en total
 ```
 
 ---
 
-### 🗣️ Lo que dices — Separación de capas
+### 💻 El código — separación Pedido vs PedidoEntity
 
-> "Tenemos dos clases que representan el pedido de María en capas distintas."
+**Archivo:** `Pedido.java` (el dominio — POJO puro)
 
-**Muestra `Pedido.java` y `PedidoEntity.java` juntos lado a lado.**
-
-**En `Pedido.java` señala los campos `private final`:**
 ```java
-// Dominio — POJO puro. Ni una sola importación de Spring ni JPA.
-private final String id;           // "abc-123-pedido-maria"
-private final String customerName; // "María García"
-private final String product;      // "Hamburguesa Doble"
-private final int    quantity;     // 1
-private final String address;      // "Calle 100 #15-30, Bogotá"
-```
-> "Los campos son `final` — inmutables desde la creación. Para cambiar el estado,
-> María no puede hacer `pedido.setStatus('ASIGNADO')`. Debe llamar a
-> `pedido.asignarRepartidor('D-001', 'Carlos')`, que valida que el pedido esté en
-> estado CREADO antes de permitir la transición. Eso es **modelo rico**."
+// Este es el pedido que usa el DOMINIO — no tiene ninguna anotación de Spring ni JPA
+public class Pedido {
 
-**Cambia a `PedidoEntity.java`, señala las líneas 16-17:**
-```java
-@Entity                   // ← anotación JPA — no existe en Pedido.java
-@Table(name = "orders")   // ← mapea la tabla orders de PostgreSQL
-public class PedidoEntity {
-    @Id                   // ← clave primaria
-    @Column(name = "id", length = 36, nullable = false)
-    private String id;    // mismo valor: "abc-123-pedido-maria"
+    // LÍNEAS 44-48: campos INMUTABLES — final = no se pueden cambiar después de crearse
+    private final String id;           // "abc-123-pedido-maria"
+    private final String customerName; // "María García"
+    private final String product;      // "Hamburguesa Doble"
+    private final int    quantity;     // 1
+    private final String address;      // "Calle 100 #15-30, Bogotá"
+    // NO tiene @Entity, NO tiene @Column, NO importa nada de Hibernate
 
-    // Setters solo para los campos mutables:
-    public void setStatus(String status)    { this.status = status; }   // "ASIGNADO", "EN_CAMINO"...
-    public void setDriverId(String dId)     { this.driverId = dId; }    // "D-001"
-    public void setUpdatedAt(Instant upAt)  { this.updatedAt = upAt; }
-    // ↑ SOLO estos 3 setters — no setCustomerName, no setProduct
+    // LÍNEAS 51-52: campos MUTABLES — solo cambian via métodos de negocio
+    private String driverId;   // null al inicio, "D-001" después de asignar
+    private String driverName; // null al inicio, "Carlos Mendoza" después de asignar
+
+    // LÍNEA 53: el estado actual — patrón State
+    OrderState estadoActual;   // empieza como EstadoCreado
+
+    // LÍNEA 90: constructor — validaciones Fail-Fast
+    public Pedido(String id, String customerName, String product, int quantity, String address) {
+        Objects.requireNonNull(id, "id no puede ser nulo");
+        if (id.isBlank())          throw new IllegalArgumentException("id no puede estar vacío");
+        if (quantity <= 0)         throw new IllegalArgumentException("quantity debe ser > 0");
+        // ...más validaciones...
+
+        this.estadoActual = new EstadoCreado(); // siempre nace en CREADO
+    }
+
+    // NO HAY setters públicos indiscriminados como setStatus("ENTREGADO")
+    // El estado solo cambia a través de métodos semánticos:
+    public void asignarRepartidor(String dId, String dName) { estadoActual.asignarRepartidor(this, dId, dName); }
+    public void iniciarEntrega()   { estadoActual.iniciarEntrega(this);   }
+    public void registrarLlegada() { estadoActual.registrarLlegada(this); }
+    public void completarEntrega() { estadoActual.completarEntrega(this); }
 }
 ```
-> "El `JpaOrderRepositoryAdapter` traduce: cuando el pedido de María pasa a ASIGNADO,
-> busca la `PedidoEntity` por id, llama `entity.setStatus('ASIGNADO')` y guarda.
-> **El dominio (`Pedido`) nunca importa `@Entity`.**"
+
+**Archivo:** `PedidoEntity.java` (la infraestructura — solo para JPA)
+
+```java
+// Este es el pedido que usa JPA/Hibernate para hablar con PostgreSQL
+// El dominio (Pedido.java) NO sabe que esta clase existe
+
+@Entity                    // LÍNEA 16: le dice a Hibernate "esta clase mapea una tabla"
+@Table(name = "orders")    // LÍNEA 17: mapea la tabla "orders" de PostgreSQL
+public class PedidoEntity {
+
+    @Id                                          // LÍNEA 20: clave primaria
+    @Column(name = "id", length = 36)            // LÍNEA 21: columna "id" en la tabla
+    private String id;                           // "abc-123-pedido-maria"
+
+    @Column(name = "customer_name", length = 150) // LÍNEA 24: columna "customer_name"
+    private String customerName;                  // "María García"
+
+    @Column(name = "status", length = 30)         // LÍNEA 36: columna "status"
+    private String status;                        // "CREADO", "ASIGNADO", etc.
+
+    // LÍNEA 65: setters SOLO para los campos que cambian
+    public void setStatus(String status)    { this.status   = status; }
+    // "ASIGNADO", "EN_CAMINO", "LLEGANDO", "ENTREGADO"
+
+    public void setDriverId(String dId)     { this.driverId = dId; }
+    // "D-001" cuando Carlos es asignado
+
+    public void setUpdatedAt(Instant upAt)  { this.updatedAt = upAt; }
+    // NO hay setCustomerName → el nombre de María nunca cambia
+}
+// La conversión Pedido ↔ PedidoEntity la hace JpaOrderRepositoryAdapter
+// El dominio nunca ve @Entity. La BD nunca ve Pedido.java.
+```
 
 ---
 
-### 🗣️ Lo que dices — `ddl-auto=validate`
+### 🖥️ Muestra 1 — Consultas a PostgreSQL (ejecuta después del demo)
 
-> "En `application.properties` tenemos `spring.jpa.hibernate.ddl-auto=validate`.
-> Hibernate no crea ni modifica las tablas. Solo verifica al arrancar que
-> `PedidoEntity` tenga los mismos campos que la tabla `orders` creada por `init.sql`.
-> Si alguien borra una columna de `init.sql` sin actualizar la entidad, el servicio
-> falla al arrancar con un error descriptivo — antes de procesar el pedido de María.
-> Con `ddl-auto=create` Hibernate borraría y recrearía la tabla en cada arranque
-> — María perdería todos sus pedidos anteriores."
-
----
-
-### 🖥️ Muestra 1 — Consulta a PostgreSQL
-
-Ejecuta en terminal:
 ```bash
 docker exec rappi_postgres psql -U rappi_user -d rappi_stream_db \
   -c "SELECT id, customer_name, status, driver_id FROM orders;"
 ```
 
-**Salida esperada (con el pedido de la demo):**
+**Salida esperada:**
 ```
-                  id                   | customer_name  |  status   | driver_id
----------------------------------------+----------------+-----------+-----------
- deca59e7-8b5d-4ac8-b466-4950cdda36aa  | Maria Garcia   | ENTREGADO | D-001
+         id (truncado)       | customer_name  |  status   | driver_id
+-----------------------------+----------------+-----------+-----------
+ deca59e7-8b5d-...           | Maria Garcia   | ENTREGADO | D-001
 ```
 
-**Lo que dices:**
-> "El pedido de María en la base de datos. `id` es el UUID que generó `order_api`.
-> `driver_id` es `D-001` — Carlos Mendoza, el primero en el Round-Robin.
-> `status` es `ENTREGADO` — el `dashboard_aggregator` lo actualizó 5 veces,
-> la última con el evento `ORDER_DELIVERED`."
+> "El pedido de María en PostgreSQL. `id` = UUID que generó `order_api`.
+> `driver_id` = D-001 → Carlos Mendoza, primero en el RoundRobin.
+> `status` = ENTREGADO → el `dashboard_aggregator` lo actualizó 4 veces."
 
-Luego ejecuta:
 ```bash
 docker exec rappi_postgres psql -U rappi_user -d rappi_stream_db \
   -c "SELECT event_type, event_timestamp FROM order_events ORDER BY event_timestamp;"
@@ -697,7 +779,7 @@ docker exec rappi_postgres psql -U rappi_user -d rappi_stream_db \
 
 **Salida esperada:**
 ```
-   event_type    |       event_timestamp
+   event_type    |     event_timestamp
 -----------------+------------------------------
  ORDER_CREATED   | 2026-11-12 19:57:23.977+00
  DRIVER_ASSIGNED | 2026-11-12 19:57:26.997+00
@@ -706,9 +788,8 @@ docker exec rappi_postgres psql -U rappi_user -d rappi_stream_db \
  ORDER_DELIVERED | 2026-11-12 19:57:45.498+00
 ```
 
-> "5 filas — 22 segundos desde que María hizo click hasta que recibió su hamburguesa.
-> Este log es inmutable. Si queremos saber cuándo exactamente Carlos fue asignado,
-> está aquí para siempre. Eso es **Event Sourcing** y **auditoría**."
+> "5 filas. 22 segundos desde que María hizo click hasta que recibió la hamburguesa.
+> Este log es inmutable — Event Sourcing y auditoría completa."
 
 ---
 
@@ -716,51 +797,74 @@ docker exec rappi_postgres psql -U rappi_user -d rappi_stream_db \
 
 **Archivo:** `order_processor/Dockerfile`
 
-**Señala Stage 1 (línea 11):**
 ```dockerfile
+# ═══ STAGE 1: BUILD ═══
+# Esta imagen NUNCA llega a producción — solo sirve para compilar
 FROM maven:3.9.6-eclipse-temurin-17 AS builder
-# Imagen grande: tiene Maven + JDK + todas las herramientas de compilación
-# Solo se usa para compilar — nunca llega a producción
-```
+# maven = herramienta de compilación, eclipse-temurin-17 = JDK Java 17
+# "AS builder" = le pone nombre a este stage para referenciarlo en el stage 2
 
-**Señala la caché de dependencias (líneas 20-27):**
-```dockerfile
-# Primero copiamos SOLO los pom.xml (sin código fuente)
+WORKDIR /workspace   # directorio de trabajo dentro del contenedor
+
+# TRUCO DE CACHÉ:
+# Copiamos SOLO los archivos pom.xml ANTES del código fuente
 COPY pom.xml .
 COPY common/pom.xml               common/pom.xml
 COPY order_processor/pom.xml      order_processor/pom.xml
-# ...
+
+# Descarga las dependencias (librerías de internet)
 RUN mvn dependency:go-offline -pl common,order_processor -am -q
-# Docker cachea esta capa. Si María no cambió el pom.xml (no agregó dependencias),
-# la próxima vez que se reconstruya la imagen esta capa se salta.
-# Solo se re-ejecuta si cambia un pom.xml.
-```
+# Docker cachea esta capa. Si el código fuente cambia pero los pom.xml no,
+# la próxima vez que se construya la imagen esta capa se salta —
+# Maven no re-descarga internet.
 
-**Señala Stage 2:**
-```dockerfile
+# AHORA sí copiamos el código fuente (invalida caché al cambiar código)
+COPY common/src         common/src
+COPY order_processor/src order_processor/src
+
+# Compila y empaqueta en un archivo .jar
+RUN mvn clean package -pl common,order_processor -am -DskipTests -q
+# -DskipTests = no correr pruebas en el build (se corren por separado en CI)
+# El resultado: order_processor/target/order_processor-1.0.0.jar
+
+# ═══ STAGE 2: RUNTIME ═══
+# Esta es la imagen FINAL que corre en producción
+# Solo tiene lo necesario para EJECUTAR — no para compilar
 FROM eclipse-temurin:17-jre-alpine
-# Imagen mínima: solo JRE Alpine. Sin Maven, sin JDK, sin código fuente.
-# ~150MB en lugar de ~500MB.
-# COPY --from=builder copia SOLO el JAR del stage anterior:
-COPY --from=builder /workspace/order_processor/target/order_processor-*.jar app.jar
-```
+# jre (no jdk) = solo el runtime de Java, sin compilador
+# alpine = distribución Linux minimalista (~5MB vs ~100MB de Ubuntu)
+# Resultado: imagen de ~150MB en lugar de ~500MB del stage 1
 
-**Señala el usuario no-root:**
-```dockerfile
+WORKDIR /app
+
+# SEGURIDAD: crea un usuario no-root llamado "appuser"
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# -S = usuario del sistema (no puede hacer login)
 USER appuser
-# Si un atacante explota una vulnerabilidad en el JAR de order_processor,
-# accede como "appuser" — no puede instalar software, no puede leer /etc/shadow,
-# no puede escalar privilegios en el host.
-```
+# A partir de aquí, todo corre como "appuser", no como "root"
+# Si un atacante explota el JAR, llega como appuser — no puede:
+#   - instalar software (sudo bloqueado)
+#   - leer /etc/shadow (contraseñas del sistema)
+#   - escalar privilegios en el host
 
-**Señala los flags JVM:**
-```dockerfile
+# Copia SOLO el JAR del stage anterior — nada más
+COPY --from=builder /workspace/order_processor/target/order_processor-*.jar app.jar
+# --from=builder = toma del stage 1 llamado "builder"
+# No copia Maven, no copia JDK, no copia código fuente
+
+# Configuración de la JVM para contenedores
 ENV JAVA_OPTS="-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
-# UseContainerSupport: JVM lee que el contenedor tiene 384 MB, no los 16 GB del host.
-# MaxRAMPercentage=75.0: usa máximo 288 MB para heap (75% de 384 MB).
-# ExitOnOutOfMemoryError: si se acaba la memoria, el proceso termina limpiamente
-#   y Docker lo reinicia — mejor que degradarse sin memoria.
+# UseContainerSupport: JVM lee los límites de cgroups del contenedor
+#   Sin esta flag: JVM ve RAM total del host (ej 16GB) y configura heap de 4GB
+#   Con esta flag: JVM ve que el contenedor tiene 384MB, configura heap de 288MB
+# MaxRAMPercentage=75.0: usa máximo 75% de los 384MB = 288MB para heap Java
+# ExitOnOutOfMemoryError: si se acaba la memoria → proceso termina limpio
+#   Docker lo reinicia automáticamente. Mejor que degradarse sin memoria.
+
+EXPOSE 8081   # documenta que el servicio usa el puerto 8081
+
+ENTRYPOINT ["sh", "-c", "java $JAVA_OPTS -jar app.jar"]
+# ejecuta: java -XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -jar app.jar
 ```
 
 ---
@@ -773,109 +877,207 @@ docker stats --no-stream
 
 **Señala la columna `MEM USAGE / LIMIT`:**
 ```
-NAME                          MEM USAGE   /   LIMIT
-rappi_order_processor          45.2MiB   /   384MiB   ← el kernel bloquea si pasa de 384
-rappi_dashboard_aggregator     52.1MiB   /   384MiB
-rappi_kafka                   210.3MiB   /   512MiB   ← Kafka necesita más RAM (JVM grande)
-rappi_postgres                  38.5MiB  /   512MiB
+NAME                        MEM USAGE  /  LIMIT
+rappi_order_processor        45.2MiB  /  384MiB   ← kernel bloquea si pasa de 384
+rappi_dashboard_aggregator   52.1MiB  /  384MiB
+rappi_kafka                 210.3MiB  /  512MiB   ← Kafka necesita más (JVM grande)
+rappi_postgres               38.5MiB  /  512MiB
 ```
 
 > "La columna `LIMIT` es el techo impuesto por **cgroups** del kernel Linux.
-> `order_processor` usa 45 MB ahora mismo y nunca puede pasar de 384 MB.
-> Si intentara usar más, el kernel lo mata con OOM-Kill y Docker lo reinicia.
-> Esos límites los configuramos en docker-compose.yml:
-> `deploy.resources.limits: cpus: '0.50', memory: 384M`"
+> `order_processor` usa 45MB ahora y nunca puede pasar de 384MB.
+> En docker-compose.yml escribimos `deploy.resources.limits: memory: 384M`
+> y Docker le dice al kernel que cree un cgroup con ese límite."
 
 ---
 
 ### 🖥️ Muestra 4 — Pruebas unitarias
 
-Ejecuta:
 ```bash
 mvn test -pl common,order_processor
 ```
 
 **Mientras corre, dices:**
-> "Estas pruebas verifican el comportamiento del sistema sin levantar Docker,
-> sin Kafka, sin PostgreSQL. Solo memoria RAM. Miran exactamente lo mismo
-> que hicimos en el demo: crear un pedido para María, asignar a Carlos,
-> simular el ciclo completo."
+> "Sin Docker, sin Kafka, sin PostgreSQL. Solo memoria RAM. Miran exactamente
+> el mismo flujo del demo: el pedido de María, la asignación de Carlos,
+> el ciclo completo de estados."
 
-**Al ver los resultados en verde, señala los grupos de pruebas:**
-> - **`PedidoTest`**: *"Verifica el patrón State. Si el pedido de María está en CREADO,
->   `iniciarEntrega()` lanza `IllegalStateException`. Si está en ENTREGADO,
->   ningún método más funciona — es un estado terminal."*
-> - **`RoundRobinAssignmentStrategyTest`**: *"Verifica la rotación: 1er pedido → Carlos,
->   2do → Laura, 3ro → Andrés, 4to vuelve a Carlos."*
-> - **`OrderProcessorServiceTest`**: *"Usa Mockito. Verifica que al procesar el pedido
->   de María se llamaron exactamente: `guardar` una vez, `publicarOrderCreated` una vez,
->   `asignar` una vez, `actualizar` una vez, `publicarDriverAssigned` una vez,
->   en ese orden exacto."*
+**Al ver los resultados, señala cada grupo:**
 
 ---
 
-### 📦 El ejemplo — qué verifica la prueba con Mockito
+### 💻 El código de las pruebas — línea por línea
+
+**Archivo:** `PedidoTest.java` — pruebas del dominio puro
 
 ```java
-// OrderProcessorServiceTest.java — así se prueba sin Kafka ni BD:
-
-@Mock OrderRepositoryPort   repositorio;  // objeto falso que no toca PostgreSQL
-@Mock OrderEventPublisherPort publicador; // objeto falso que no toca Kafka
-@Mock DriverAssignmentStrategy estrategia; // objeto falso que no asigna repartidores
-@InjectMocks OrderProcessorService service; // el servicio REAL con los mocks inyectados
-
+// Esta prueba verifica el ciclo de vida COMPLETO del pedido de María
 @Test
-void procesarComandoDeMariaSigueLosPassosEnOrden() {
-    // Arrange — preparar el comando de María
-    OrderCreatedCommand comando = new OrderCreatedCommand(
-        "cmd-001", "abc-123",
-        "María García", "Hamburguesa Doble", 1,
-        "Calle 100 #15-30, Bogotá", Instant.now()
-    );
+@DisplayName("Ciclo completo: CREADO → ASIGNADO → EN_CAMINO → LLEGANDO → ENTREGADO")
+void cicloDeVidaCompleto() {
 
-    // Act — ejecutar el flujo real
-    service.procesarComando(comando);
+    // ARRANGE: crear el pedido en estado inicial
+    Pedido pedido = new Pedido("order-001", "María García", "Hamburguesa", 2, "Calle 100 #15-30");
+    assertEquals("CREADO", pedido.getNombreEstado()); // ← verifica estado inicial
 
-    // Assert — verificar que se llamaron en el orden correcto:
-    InOrder inOrder = inOrder(repositorio, publicador, estrategia);
-    inOrder.verify(repositorio).guardar(any(Pedido.class));      // paso 2
-    inOrder.verify(publicador).publicarOrderCreated(any());      // paso 3
-    inOrder.verify(estrategia).asignar(any(Pedido.class));       // paso 4
-    inOrder.verify(repositorio).actualizar(any(Pedido.class));   // paso 5
-    inOrder.verify(publicador).publicarDriverAssigned(any());    // paso 6
-    // Si cualquier paso falta o está en otro orden → la prueba FALLA
+    // ACT & ASSERT: cada transición
+
+    pedido.asignarRepartidor("D-001", "Carlos Mendoza"); // patrón State entra aquí
+    assertEquals("ASIGNADO",        pedido.getNombreEstado()); // ← cambió a ASIGNADO
+    assertEquals("D-001",           pedido.getDriverId());     // ← se guardó el driver
+    assertEquals("Carlos Mendoza",  pedido.getDriverName());   // ← se guardó el nombre
+
+    pedido.iniciarEntrega();         // Carlos salió del restaurante
+    assertEquals("EN_CAMINO", pedido.getNombreEstado());
+
+    pedido.registrarLlegada();       // Carlos está llegando
+    assertEquals("LLEGANDO",  pedido.getNombreEstado());
+
+    pedido.completarEntrega();       // Hamburguesa entregada
+    assertEquals("ENTREGADO", pedido.getNombreEstado());
+}
+
+// Esta prueba verifica que el patrón State bloquea transiciones inválidas
+@Test
+@DisplayName("No debe iniciar entrega desde estado CREADO")
+void noDebeIniciarEntregaDesdeCreado() {
+
+    // ARRANGE: pedido en estado CREADO (sin repartidor asignado)
+    Pedido pedido = new Pedido("order-001", "María García", "Hamburguesa", 2, "Calle 100 #15-30");
+
+    // ACT & ASSERT: intentar iniciarEntrega sin haber asignado repartidor
+    var ex = assertThrows(IllegalStateException.class, pedido::iniciarEntrega);
+    // assertThrows VERIFICA que se lance la excepción — si NO se lanza, la prueba FALLA
+    // pedido::iniciarEntrega = "ejecuta pedido.iniciarEntrega()"
+
+    assertTrue(ex.getMessage().contains("CREADO"));
+    // el mensaje de error debe mencionar "CREADO" para que sea descriptivo
 }
 ```
 
-> "Sin Docker. Sin red. Sin broker. La prueba termina en milisegundos y verifica
-> el comportamiento exacto del procesamiento del pedido de María."
+**Archivo:** `OrderProcessorServiceTest.java` — pruebas con Mockito
+
+```java
+@ExtendWith(MockitoExtension.class) // activa Mockito en este test
+class OrderProcessorServiceTest {
+
+    // @Mock = crear un OBJETO FALSO que reemplaza la dependencia real
+    @Mock
+    private OrderRepositoryPort repositorio;
+    // Este "repositorio" NO toca PostgreSQL — solo registra las llamadas que recibe
+
+    @Mock
+    private OrderEventPublisherPort publicador;
+    // Este "publicador" NO toca Kafka — solo registra las llamadas
+
+    @Mock
+    private DriverAssignmentStrategy estrategiaAsignacion;
+    // Esta "estrategia" NO asigna repartidores reales
+
+    @InjectMocks
+    private OrderProcessorService service;
+    // Crea el OrderProcessorService REAL e inyecta los 3 mocks en su constructor
+    // Es equivalente a: new OrderProcessorService(repositorio, publicador, estrategiaAsignacion)
+
+    // ---- PRUEBA 1: verificar el orden exacto de las operaciones ----
+    @Test
+    @DisplayName("Debe ejecutar las operaciones en el orden correcto")
+    void debeEjecutarEnOrdenCorrecto() {
+
+        // ARRANGE: crear el comando de María
+        OrderCreatedCommand comando = new OrderCreatedCommand(
+            UUID.randomUUID().toString(),
+            UUID.randomUUID().toString(),
+            "María García",          // customerName
+            "Hamburguesa doble",     // product
+            2,                       // quantity
+            "Calle 100 #15-30",     // address
+            Instant.now()
+        );
+
+        // ACT: ejecutar el flujo real del servicio
+        service.procesarComando(comando);
+        // El servicio usa los mocks — no conecta a Kafka ni PostgreSQL
+
+        // ASSERT: verificar el ORDEN EXACTO de las llamadas
+        var ordenVerificacion = inOrder(repositorio, publicador, estrategiaAsignacion);
+        // inOrder = verifica que las llamadas ocurrieron en ESTE orden exacto
+
+        ordenVerificacion.verify(repositorio).guardar(any());
+        // ↑ "guardar fue llamado PRIMERO, con cualquier Pedido"
+
+        ordenVerificacion.verify(publicador).publicarOrderCreated(any());
+        // ↑ "publicarOrderCreated fue SEGUNDO"
+
+        ordenVerificacion.verify(estrategiaAsignacion).asignar(any());
+        // ↑ "asignar fue TERCERO"
+
+        ordenVerificacion.verify(repositorio).actualizar(any());
+        // ↑ "actualizar fue CUARTO"
+
+        ordenVerificacion.verify(publicador).publicarDriverAssigned(any());
+        // ↑ "publicarDriverAssigned fue QUINTO"
+        // Si cualquier paso falta o está en otro orden → esta prueba FALLA
+    }
+
+    // ---- PRUEBA 2: si no hay repartidores, NO publicar DRIVER_ASSIGNED ----
+    @Test
+    @DisplayName("Si la estrategia falla, no debe publicar DRIVER_ASSIGNED")
+    void siEstrategiaFallaNODebePublicarDriverAssigned() {
+
+        // ARRANGE: configurar el mock para que FALLE cuando se llame asignar()
+        doThrow(new IllegalStateException("Sin repartidores disponibles"))
+            .when(estrategiaAsignacion).asignar(any());
+        // "cuando se llame estrategiaAsignacion.asignar() con cualquier argumento,
+        //  lanza IllegalStateException"
+
+        OrderCreatedCommand comando = new OrderCreatedCommand(
+            UUID.randomUUID().toString(), UUID.randomUUID().toString(),
+            "María García", "Hamburguesa doble", 2, "Calle 100 #15-30", Instant.now()
+        );
+
+        // ACT & ASSERT: el servicio lanza la excepción
+        assertThrows(IllegalStateException.class, () -> service.procesarComando(comando));
+
+        // ASSERT: verificar que publicarDriverAssigned NUNCA fue llamado
+        verify(publicador, never()).publicarDriverAssigned(any());
+        // "never()" = verificar que este método NO fue llamado
+        // Si María no tiene repartidor disponible, NO se publica DRIVER_ASSIGNED en Kafka
+    }
+}
+```
 
 ---
 
-### ❓ Preguntas que te harán y cómo responder
+### ❓ Preguntas y respuestas
 
 **"¿Qué son cgroups?"**
-> "Control groups — un mecanismo del **kernel Linux** para limitar recursos de procesos.
-> En `docker-compose.yml` pusimos `memory: 384M` para `order_processor`. Docker le dice
-> al kernel que cree un cgroup para ese contenedor con límite de 384 MB.
-> El kernel garantiza que el proceso no pueda usar más.
-> Con `-XX:+UseContainerSupport`, la JVM lee ese límite de cgroup — sin esa flag,
-> la JVM vería los 16 GB del host y configuraría un heap de 4 GB para un contenedor
-> que solo tiene 384 MB, causando un OOM-Kill inmediato."
+> "Control groups — mecanismo del kernel Linux para limitar recursos de procesos.
+> En `docker-compose.yml` pusimos `memory: 384M` para `order_processor`. Docker
+> le dice al kernel que cree un cgroup con límite de 384MB. El kernel garantiza
+> que el proceso no pueda usar más. Con `-XX:+UseContainerSupport`, la JVM lee
+> ese límite — sin esa flag vería los 16GB del host y configuraría un heap de 4GB
+> para un contenedor de 384MB, causando un OOM-Kill inmediato."
 
 **"¿Por qué `ddl-auto=validate` y no `create` o `update`?"**
-> "Con `create`: cada vez que `order_processor` arranca, Hibernate borra la tabla
-> `orders` y la recrea vacía. El pedido de María del día anterior desaparece.
-> Con `update`: Hibernate intenta alterar el esquema automáticamente — puede
-> borrar columnas accidentalmente. Con `validate`: solo verifica. El control
-> del esquema está en `init.sql` versionado en Git — podemos rastrear cada cambio."
+> "Con `create`: Hibernate borra y recrea la tabla `orders` en cada arranque —
+> el pedido de María del día anterior desaparece. Con `update`: Hibernate intenta
+> alterar el esquema automáticamente — puede borrar columnas accidentalmente.
+> Con `validate`: solo verifica que `PedidoEntity` coincide con la tabla creada
+> por `init.sql`. El esquema está en Git, versionado, bajo control total."
 
-**"¿Qué es Mockito?"**
-> "Un framework para crear objetos falsos que reemplazan dependencias reales en pruebas.
-> `@Mock` crea un `KafkaTemplate` que no conecta a ningún broker pero recuerda
-> qué métodos se llamaron. `verify(publicador).publicarOrderCreated(any())` confirma
-> que el servicio publicó el evento de María en Kafka. Si no lo hizo, la prueba falla.
-> Las pruebas no necesitan Docker ni red — corren en segundos."
+**"¿Qué es `@Mock` exactamente?"**
+> "Crea un objeto falso que reemplaza la dependencia real en la prueba.
+> El `@Mock OrderRepositoryPort repositorio` no toca PostgreSQL — es una cáscara
+> que solo registra qué métodos fueron llamados y con qué argumentos.
+> `verify(repositorio).guardar(any())` pregunta: '¿se llamó el método guardar?'
+> Si no se llamó, la prueba falla. Así verificamos el comportamiento sin infraestructura."
+
+**"¿Por qué `any()` en el verify?"**
+> "`any()` es un matcher de Mockito que significa 'con cualquier argumento'.
+> En `verify(repositorio).guardar(any(Pedido.class))` verificamos que `guardar`
+> fue llamado con algún objeto de tipo `Pedido` — no nos importa cuál exactamente.
+> Si quisiéramos verificar el contenido exacto usaríamos `ArgumentCaptor`."
 
 ---
 
@@ -883,15 +1085,19 @@ void procesarComandoDeMariaSigueLosPassosEnOrden() {
 
 | Concepto | Con el ejemplo de María |
 |---|---|
-| Kafka vs RabbitMQ | Crear el pedido va por RabbitMQ (uno lo procesa). Los cambios de estado van por Kafka (tres servicios los leen). |
-| Clave de partición | El UUID del pedido de María garantiza que sus 5 eventos van siempre a la misma partición — en orden. |
+| Kafka vs RabbitMQ | Crear el pedido va por RabbitMQ (uno lo procesa). Los 5 cambios de estado van por Kafka (3 servicios los leen). |
+| Clave de partición | El UUID "abc-123" garantiza que los 5 eventos de María van a la misma partición — en orden. |
 | Work Queue | Si hay 3 order_processors, el pedido de María lo toma uno solo — no tres. |
 | Topic Exchange | SMS cuando Carlos llega (`notify.client.sms`). Push cuando entrega (`notify.driver.push`). |
-| Patrón Strategy | Para asignar repartidores: hoy RoundRobin. Mañana por cercanía. `OrderProcessorService` no cambia. |
+| `record` | Clase inmutable de Java 17. `OrderCreatedCommand` con datos de María no tiene setters. |
+| Fail-Fast | Si María pide `quantity=0`, el constructor del record lanza excepción antes de llegar a RabbitMQ. |
+| Patrón Strategy | Para asignar: hoy RoundRobin. Mañana por cercanía. `OrderProcessorService` no cambia. |
 | DIP | `OrderProcessorService` llama a `OrderEventPublisherPort` (interfaz). No sabe que adentro hay Kafka. |
-| Modelo Rico | `pedido.asignarRepartidor()` valida que esté en CREADO. No hay `pedido.setStatus("ASIGNADO")`. |
-| Fail-Fast | Si `quantity = 0` en el pedido de María → `IllegalArgumentException` en el constructor. No llega a BD. |
-| ddl-auto=validate | Hibernate verifica que `PedidoEntity` coincide con la tabla `orders`. No borra los pedidos de María. |
-| Multi-stage Docker | Stage 1: Maven compila el JAR. Stage 2: JRE Alpine ejecuta solo el JAR. Sin Maven en producción. |
-| cgroups | `order_processor` tiene 384 MB máximo. La JVM lo sabe con `UseContainerSupport`. |
-| Idempotencia | Si el aggregator reprocesa los 5 eventos de María, no duplica filas: `event_id UNIQUE` lo bloquea. |
+| Patrón State | `pedido.asignarRepartidor()` solo funciona en CREADO. En ENTREGADO lanza excepción. No hay if-else. |
+| Modelo Rico | `pedido.asignarRepartidor("D-001","Carlos")`. No hay `pedido.setStatus("ASIGNADO")`. |
+| ddl-auto=validate | Hibernate verifica que `PedidoEntity` coincide con `orders`. No borra los pedidos de María. |
+| Multi-stage Docker | Stage 1: Maven compila. Stage 2: JRE Alpine ejecuta solo el JAR. Sin Maven en producción. |
+| cgroups | `order_processor` máximo 384MB. La JVM lo sabe con `UseContainerSupport`. |
+| Idempotencia | Si el aggregator reprocesa los 5 eventos de María, `event_id UNIQUE` bloquea los duplicados. |
+| `@Mock` | Objeto falso que no toca Kafka/BD pero recuerda las llamadas. `verify()` las comprueba. |
+| `inOrder` | Verifica que las llamadas ocurrieron en orden: guardar → publicar → asignar → actualizar. |
