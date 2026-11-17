@@ -1,707 +1,1415 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rappi-Stream — Dashboard en Tiempo Real</title>
-    <style>
-        /* ================================================
-           RESET Y VARIABLES
-           ================================================ */
-        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Rappi-Stream Delivery</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<!-- sin Leaflet -->
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --red:#FF3B30;--orange:#FF6B00;--orange2:#FF9500;--yellow:#FFCC00;
+  --green:#34C759;--teal:#00B894;--blue:#007AFF;--purple:#AF52DE;--pink:#FF2D55;
+  --bg:#0D0D0D;--surface:#1A1A1A;--card:#242424;--card2:#2C2C2C;
+  --border:#333;--text:#F5F5F5;--muted:#888;
+  --grad:linear-gradient(135deg,#FF6B00 0%,#FF3B30 100%);
+  --radius:16px;--radius-sm:10px;
+  --shadow:0 8px 32px rgba(0,0,0,.5);
+}
+body{background:var(--bg);color:var(--text);font-family:'Nunito',system-ui,sans-serif;font-size:14px;line-height:1.5;overflow-x:hidden;}
+::-webkit-scrollbar{width:5px;height:5px}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:3px}
 
-        :root {
-            --bg:        #0f1117;
-            --surface:   #1a1d27;
-            --card:      #22263a;
-            --border:    #2e3350;
-            --accent:    #ff6600;
-            --accent2:   #ffaa00;
-            --text:      #e8eaf6;
-            --muted:     #8892b0;
-            --green:     #4caf50;
-            --blue:      #2196f3;
-            --orange:    #ff9800;
-            --red:       #f44336;
-            --purple:    #9c27b0;
-            --radius:    12px;
-            --shadow:    0 4px 24px rgba(0,0,0,0.4);
-        }
+/* ── LAYOUT ── */
+.app{display:flex;min-height:100vh}
+.sidebar{width:68px;background:var(--surface);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;padding:16px 0;gap:4px;position:fixed;top:0;left:0;bottom:0;z-index:200}
+.sidebar-logo{width:42px;height:42px;background:var(--grad);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;margin-bottom:12px;box-shadow:0 4px 16px rgba(255,107,0,.4)}
+.nav-btn{width:46px;height:46px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:18px;transition:all .2s;position:relative}
+.nav-btn span.lbl{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.5px}
+.nav-btn:hover{background:rgba(255,107,0,.1);color:var(--orange)}
+.nav-btn.active{background:rgba(255,107,0,.15);color:var(--orange)}
+.nav-btn.active::before{content:'';position:absolute;left:0;top:50%;transform:translateY(-50%);width:3px;height:26px;background:var(--grad);border-radius:0 3px 3px 0}
+.main{margin-left:68px;flex:1;display:flex;flex-direction:column}
 
-        body {
-            background: var(--bg);
-            color: var(--text);
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-            font-size: 14px;
-            line-height: 1.6;
-            min-height: 100vh;
-        }
+/* ── TOPBAR ── */
+.topbar{background:var(--surface);border-bottom:1px solid var(--border);padding:12px 24px;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:100}
+.topbar h1{font-size:18px;font-weight:900;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.topbar p{font-size:10px;color:var(--muted);letter-spacing:1px;text-transform:uppercase}
+.topbar-right{display:flex;align-items:center;gap:10px}
+.ws-pill{display:flex;align-items:center;gap:6px;padding:5px 12px;background:var(--card);border:1px solid var(--border);border-radius:20px;font-size:11px;font-weight:700}
+.ws-dot{width:7px;height:7px;border-radius:50%;background:var(--red);transition:background .3s}
+.ws-dot.on{background:var(--green);animation:pulse 2s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.btn-primary{padding:9px 18px;background:var(--grad);color:#fff;border:none;border-radius:10px;font-size:13px;font-weight:800;cursor:pointer;box-shadow:0 4px 16px rgba(255,107,0,.3);transition:all .2s}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 6px 20px rgba(255,107,0,.4)}
+.btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none}
 
-        /* ================================================
-           HEADER
-           ================================================ */
-        header {
-            background: linear-gradient(135deg, #1a1d27 0%, #22263a 100%);
-            border-bottom: 2px solid var(--accent);
-            padding: 20px 32px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            position: sticky;
-            top: 0;
-            z-index: 100;
-            box-shadow: var(--shadow);
-        }
+/* ── TABS ── */
+.tabs-nav{display:flex;gap:2px;padding:12px 24px 0;border-bottom:1px solid var(--border);background:var(--surface);position:sticky;top:57px;z-index:90}
+.tab-btn{padding:9px 18px;background:transparent;border:none;border-radius:10px 10px 0 0;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer;transition:all .2s;display:flex;align-items:center;gap:6px;border-bottom:3px solid transparent;margin-bottom:-1px}
+.tab-btn:hover{color:var(--text)}
+.tab-btn.active{color:var(--orange);border-bottom-color:var(--orange);background:rgba(255,107,0,.07)}
+.tab-badge{background:var(--red);color:#fff;font-size:9px;font-weight:800;padding:1px 5px;border-radius:10px;min-width:16px;text-align:center}
+.tab-panel{display:none;padding:24px}
+.tab-panel.active{display:block}
 
-        .header-brand {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
+/* ── MÉTRICAS ── */
+.metrics-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:14px;margin-bottom:24px}
+.metric-card{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;display:flex;flex-direction:column;gap:8px;position:relative;overflow:hidden;transition:transform .2s;cursor:default}
+.metric-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px}
+.metric-card:nth-child(1)::before{background:var(--grad)}
+.metric-card:nth-child(2)::before{background:linear-gradient(90deg,#007AFF,#64b5f6)}
+.metric-card:nth-child(3)::before{background:linear-gradient(90deg,#FF9500,#FFCC00)}
+.metric-card:nth-child(4)::before{background:linear-gradient(90deg,#AF52DE,#ce93d8)}
+.metric-card:nth-child(5)::before{background:linear-gradient(90deg,#34C759,#00B894)}
+.metric-card:nth-child(6)::before{background:linear-gradient(90deg,#FF2D55,#FF3B30)}
+.metric-card:hover{transform:translateY(-2px)}
+.m-icon{font-size:24px}
+.m-val{font-size:32px;font-weight:900;line-height:1}
+.m-label{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
 
-        .logo {
-            width: 44px;
-            height: 44px;
-            background: var(--accent);
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 22px;
-        }
+/* ── TABLA ── */
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px}
+.sec-title{font-size:15px;font-weight:800;display:flex;align-items:center;gap:7px}
+.table-wrap{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;box-shadow:var(--shadow)}
+.tbl-filters{padding:12px 14px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;border-bottom:1px solid var(--border);background:var(--card2)}
+.f-search{flex:1;min-width:180px;padding:7px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:12px;outline:none}
+.f-search:focus{border-color:var(--orange)}
+.f-btn{padding:6px 12px;background:var(--card);border:1px solid var(--border);border-radius:8px;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;transition:all .2s;white-space:nowrap}
+.f-btn.active,.f-btn:hover{background:rgba(255,107,0,.15);border-color:var(--orange);color:var(--orange)}
+table{width:100%;border-collapse:collapse}
+thead th{padding:11px 14px;text-align:left;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:1px;color:var(--muted);border-bottom:1px solid var(--border);background:var(--card2)}
+tbody tr{border-bottom:1px solid var(--border);transition:background .15s}
+tbody tr:last-child{border-bottom:none}
+tbody tr:hover{background:rgba(255,255,255,.02)}
+tbody td{padding:11px 14px;font-size:13px;vertical-align:middle}
+.order-num{font-family:monospace;font-weight:900;font-size:14px;color:var(--orange);background:rgba(255,107,0,.1);padding:2px 7px;border-radius:6px;display:inline-block;letter-spacing:.5px}
+.food-cell{display:flex;align-items:center;gap:8px}
+.food-thumb{width:40px;height:40px;border-radius:9px;background:var(--card2);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.driver-cell{display:flex;align-items:center;gap:7px}
+.d-av{width:30px;height:30px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.badge{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:20px;font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.5px}
+.badge-dot{width:5px;height:5px;border-radius:50%}
+.badge.CREADO{background:rgba(136,136,136,.15);color:#aaa}
+.badge.ASIGNADO{background:rgba(0,122,255,.15);color:#64b5f6}
+.badge.EN_CAMINO{background:rgba(255,149,0,.15);color:#FFB347}
+.badge.LLEGANDO{background:rgba(175,82,222,.15);color:#ce93d8}
+.badge.ENTREGADO{background:rgba(52,199,89,.15);color:#34C759}
+.badge.CREADO .badge-dot{background:#aaa}
+.badge.ASIGNADO .badge-dot{background:#64b5f6}
+.badge.EN_CAMINO .badge-dot{background:#FFB347;animation:pulse 1.5s infinite}
+.badge.LLEGANDO .badge-dot{background:#ce93d8;animation:pulse 1s infinite}
+.badge.ENTREGADO .badge-dot{background:#34C759}
+@keyframes rowFlash{0%{background:rgba(255,107,0,.1)}100%{background:transparent}}
+tr.flash{animation:rowFlash 1.5s ease}
+.btn-track{padding:4px 10px;border-radius:7px;background:rgba(255,107,0,.12);border:1px solid rgba(255,107,0,.3);color:var(--orange);font-size:10px;font-weight:800;cursor:pointer;transition:all .2s}
+.btn-track:hover{background:rgba(255,107,0,.25)}
+.empty{padding:50px;text-align:center;color:var(--muted)}
+.empty .ei{font-size:40px;margin-bottom:10px}
 
-        .brand-text h1 {
-            font-size: 22px;
-            font-weight: 700;
-            color: var(--text);
-            letter-spacing: 1px;
-        }
+/* ── TRACKING ── */
+.tracking-layout{display:grid;grid-template-columns:360px 1fr;gap:16px;height:calc(100vh - 160px);min-height:600px}
+.track-left{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);display:flex;flex-direction:column;overflow:hidden}
+.track-left-hdr{padding:14px 16px;background:var(--card2);border-bottom:1px solid var(--border)}
+.track-left-hdr h3{font-size:14px;font-weight:800}
+.track-left-hdr p{font-size:11px;color:var(--muted);margin-top:2px}
 
-        .brand-text p {
-            font-size: 11px;
-            color: var(--muted);
-            letter-spacing: 2px;
-            text-transform: uppercase;
-        }
+/* Detalle del pedido activo */
+.active-order{padding:16px;border-bottom:1px solid var(--border)}
+.ao-id{font-size:24px;font-weight:900;color:var(--orange);font-family:monospace;letter-spacing:1px}
+.ao-customer{font-size:14px;font-weight:700;margin-top:4px}
+.ao-addr{font-size:11px;color:var(--muted);margin-top:2px;margin-bottom:10px}
+.ao-product{font-size:12px;color:var(--muted);display:flex;align-items:center;gap:5px}
 
-        .header-actions {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-        }
+/* Driver card */
+.driver-card-inline{margin:12px 16px;background:var(--card2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;display:flex;align-items:center;gap:10px}
+.dci-av{width:44px;height:44px;border-radius:50%;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;border:2px solid var(--orange)}
+.dci-name{font-size:14px;font-weight:800}
+.dci-id{font-size:11px;color:var(--muted)}
+.dci-status{font-size:11px;color:var(--green);font-weight:700;margin-top:2px}
 
-        .ws-status {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 14px;
-            border-radius: 20px;
-            background: rgba(255,255,255,0.05);
-            font-size: 12px;
-            font-weight: 600;
-        }
+/* Personaje animado */
+.char-stage{padding:12px 16px;text-align:center;border-bottom:1px solid var(--border)}
+.char-emoji{font-size:52px;display:block;line-height:1;margin-bottom:6px}
+.char-label{font-size:13px;font-weight:800;color:var(--orange)}
+.char-sub{font-size:11px;color:var(--muted);margin-top:2px}
 
-        .ws-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            background: var(--red);
-            transition: background 0.3s;
-        }
+/* Stepper */
+.stepper{padding:12px 16px 16px}
+.stepper-title{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:12px}
+.steps{display:flex;flex-direction:column;gap:0}
+.step{display:flex;align-items:flex-start;gap:12px;position:relative;padding-bottom:18px}
+.step:last-child{padding-bottom:0}
+.step:not(:last-child)::before{content:'';position:absolute;left:14px;top:28px;bottom:0;width:2px;background:var(--border)}
+.step.done:not(:last-child)::before{background:var(--grad)}
+.step.active:not(:last-child)::before{background:linear-gradient(to bottom,var(--orange),var(--border))}
+.step-ico{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;background:var(--card2);border:2px solid var(--border);flex-shrink:0;position:relative;z-index:1;transition:all .3s}
+.step.done .step-ico{background:var(--green);border-color:var(--green)}
+.step.active .step-ico{background:var(--grad);border-color:var(--orange);box-shadow:0 0 14px rgba(255,107,0,.4);animation:stepGlow 1.5s infinite}
+@keyframes stepGlow{0%,100%{box-shadow:0 0 14px rgba(255,107,0,.4)}50%{box-shadow:0 0 22px rgba(255,107,0,.7)}}
+.step-info{}
+.step-name{font-size:12px;font-weight:800;margin-bottom:1px}
+.step-desc{font-size:11px;color:var(--muted)}
+.step.done .step-name{color:var(--green)}
+.step.active .step-name{color:var(--orange)}
 
-        .ws-dot.connected { background: var(--green); animation: pulse 2s infinite; }
+/* Barra progreso */
+.prog-wrap{margin:0 16px 12px}
+.prog-track{height:5px;background:var(--border);border-radius:3px;overflow:hidden}
+.prog-fill{height:100%;background:var(--grad);border-radius:3px;transition:width .6s cubic-bezier(.4,0,.2,1)}
+.prog-pct{font-size:10px;color:var(--orange);font-weight:800;text-align:right;margin-top:3px}
 
-        @keyframes pulse {
-            0%, 100% { opacity: 1; }
-            50%       { opacity: 0.5; }
-        }
+/* Lista de pedidos activos */
+.orders-list{flex:1;overflow-y:auto}
+.oli{padding:12px 14px;border-bottom:1px solid var(--border);cursor:pointer;transition:background .15s;display:flex;align-items:center;gap:10px}
+.oli:hover{background:rgba(255,255,255,.02)}
+.oli.selected{background:rgba(255,107,0,.07);border-left:3px solid var(--orange)}
+.oli-id{font-size:12px;font-weight:900;color:var(--orange);font-family:monospace}
+.oli-name{font-size:11px;font-weight:600}
+.oli-st{font-size:10px;color:var(--muted)}
+.oli-ico{font-size:22px;flex-shrink:0}
 
-        /* ================================================
-           BOTÓN CREAR PEDIDO
-           ================================================ */
-        .btn-create {
-            padding: 10px 22px;
-            background: var(--accent);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 13px;
-            font-weight: 700;
-            cursor: pointer;
-            letter-spacing: 0.5px;
-            transition: all 0.2s;
-        }
+/* ── PANEL ANIMACIÓN ENTREGA ── */
+.map-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);display:flex;flex-direction:column;overflow:hidden}
+.map-hdr{padding:12px 16px;background:var(--card2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;flex-shrink:0}
+.map-hdr h3{font-size:13px;font-weight:800}
+.map-eta{background:rgba(255,107,0,.15);border:1px solid rgba(255,107,0,.3);color:var(--orange);padding:4px 10px;border-radius:20px;font-size:11px;font-weight:800}
 
-        .btn-create:hover { background: #ff8533; transform: translateY(-1px); }
-        .btn-create:active { transform: translateY(0); }
-        .btn-create:disabled { opacity: 0.5; cursor: not-allowed; }
+/* Escena principal */
+.delivery-scene{flex:1;position:relative;overflow:hidden;background:linear-gradient(180deg,#080c14 0%,#0d1520 60%,#111820 100%);min-height:280px;display:flex;align-items:stretch}
 
-        /* ================================================
-           MAIN LAYOUT
-           ================================================ */
-        main {
-            max-width: 1300px;
-            margin: 0 auto;
-            padding: 28px 32px;
-        }
+/* Cielo con estrellas */
+.sky-stars{position:absolute;inset:0;pointer-events:none}
+.star{position:absolute;border-radius:50%;background:#fff;animation:twinkle 2s ease-in-out infinite}
+@keyframes twinkle{0%,100%{opacity:.8}50%{opacity:.2}}
 
-        /* ================================================
-           MÉTRICAS
-           ================================================ */
-        .metrics-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 16px;
-            margin-bottom: 28px;
-        }
+/* Edificios */
+.scene-city{position:absolute;bottom:72px;left:0;right:0;display:flex;align-items:flex-end;gap:4px;padding:0 20px;pointer-events:none}
+.bld{background:linear-gradient(180deg,#1a2535,#111820);border:1px solid #1e2d40;border-bottom:none;border-radius:3px 3px 0 0;position:relative;flex-shrink:0}
+.bld-win{position:absolute;width:5px;height:5px;border-radius:1px;animation:winBlink 3s ease-in-out infinite}
+.bld-win.on{background:rgba(255,220,80,.7)}
+.bld-win.off{background:rgba(60,80,100,.4);animation:none}
+@keyframes winBlink{0%,100%{opacity:1}50%{opacity:.3}}
 
-        .metric-card {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 20px;
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            transition: transform 0.2s;
-        }
+/* Carretera */
+.scene-road{position:absolute;bottom:0;left:0;right:0;height:72px;background:linear-gradient(0deg,#191919 0%,#202020 100%)}
+.road-center-line{position:absolute;top:50%;left:0;right:0;height:3px;transform:translateY(-50%)}
+.road-dashes{width:100%;height:100%;background:repeating-linear-gradient(90deg,#FF9500 0,#FF9500 36px,transparent 36px,transparent 72px);animation:dashMove 0.4s linear infinite}
+@keyframes dashMove{from{transform:translateX(0)}to{transform:translateX(-72px)}}
+.road-edge-top{position:absolute;top:0;left:0;right:0;height:3px;background:linear-gradient(90deg,#FF6B00,#FF3B30,#FF6B00);opacity:.7}
+.road-edge-bot{position:absolute;bottom:0;left:0;right:0;height:3px;background:#FF6B00;opacity:.5}
 
-        .metric-card:hover { transform: translateY(-2px); }
+/* Moto */
+.moto-wrap{position:absolute;bottom:72px;transition:left 1.4s cubic-bezier(.4,0,.2,1)}
+.moto-wrap.riding{animation:bikeHop .22s ease-in-out infinite alternate}
+@keyframes bikeHop{from{transform:translateY(0) rotate(0deg)}to{transform:translateY(-4px) rotate(.8deg)}}
 
-        .metric-icon {
-            width: 48px;
-            height: 48px;
-            border-radius: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 22px;
-            flex-shrink: 0;
-        }
+/* Líneas de velocidad */
+.speed-lines{position:absolute;bottom:14px;display:flex;flex-direction:column;gap:5px;pointer-events:none;opacity:0;transition:opacity .3s;right:calc(100% - 14px)}
+.moto-wrap.riding .speed-lines{opacity:1}
+.sp{height:2px;border-radius:2px;background:linear-gradient(270deg,var(--orange),transparent);animation:spFly .35s linear infinite}
+.sp:nth-child(1){width:30px;animation-delay:.00s}
+.sp:nth-child(2){width:20px;animation-delay:.12s}
+.sp:nth-child(3){width:24px;animation-delay:.22s}
+@keyframes spFly{0%{opacity:.9;transform:scaleX(1)}100%{opacity:0;transform:scaleX(.3) translateX(-20px)}}
 
-        .metric-data .value {
-            font-size: 28px;
-            font-weight: 800;
-            line-height: 1;
-        }
+/* Restaurante & Destino */
+.scene-rest,.scene-dest{position:absolute;bottom:72px;display:flex;flex-direction:column;align-items:center;gap:3px;transition:opacity .5s}
+.scene-rest{left:24px}
+.scene-dest{right:24px;opacity:0}
+.scene-dest.visible{opacity:1}
+.loc-icon{font-size:30px;filter:drop-shadow(0 2px 8px rgba(255,107,0,.6))}
+.loc-label{font-size:8px;font-weight:800;text-transform:uppercase;letter-spacing:.8px;padding:2px 6px;border-radius:4px}
+.rest-label{color:var(--muted);background:rgba(255,255,255,.07)}
+.dest-label{color:var(--orange);background:rgba(255,107,0,.18)}
 
-        .metric-data .label {
-            font-size: 11px;
-            color: var(--muted);
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            margin-top: 4px;
-        }
+/* Burbuja de estado superior */
+.scene-bubble{position:absolute;top:16px;left:50%;transform:translateX(-50%);background:rgba(26,30,40,.95);border:1px solid rgba(255,107,0,.25);border-radius:14px;padding:8px 20px;text-align:center;min-width:180px;backdrop-filter:blur(8px)}
+.sb-icon{font-size:28px;line-height:1}
+.sb-label{font-size:11px;font-weight:800;color:var(--orange);margin-top:3px}
+.sb-sub{font-size:10px;color:var(--muted);margin-top:1px}
 
-        /* ================================================
-           TABLA DE PEDIDOS
-           ================================================ */
-        .section-title {
-            font-size: 16px;
-            font-weight: 700;
-            color: var(--text);
-            margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
+/* Chef (CREADO) */
+.chef-scene{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:linear-gradient(180deg,#080c14,#0d1520)}
+.chef-figure{font-size:90px;line-height:1;animation:chefCook .8s ease-in-out infinite alternate}
+@keyframes chefCook{from{transform:rotate(-6deg) translateY(0)}to{transform:rotate(6deg) translateY(-6px)}}
+.steam-row{display:flex;gap:10px;margin-top:-4px}
+.stm{width:4px;border-radius:3px;background:rgba(255,255,255,.2);animation:steamUp 1.4s ease-in-out infinite}
+.stm:nth-child(1){height:16px;animation-delay:.0s}
+.stm:nth-child(2){height:24px;animation-delay:.5s}
+.stm:nth-child(3){height:14px;animation-delay:.9s}
+@keyframes steamUp{0%,100%{transform:translateY(0) scaleX(1);opacity:.5}50%{transform:translateY(-12px) scaleX(1.6);opacity:.1}}
+.chef-label{font-size:14px;font-weight:800;color:var(--text)}
+.chef-sub{font-size:11px;color:var(--muted)}
 
-        .table-container {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            overflow: hidden;
-            margin-bottom: 28px;
-            box-shadow: var(--shadow);
-        }
+/* Entregado */
+.delivered-scene{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:linear-gradient(180deg,#080c14,#001a08)}
+.del-check{font-size:80px;animation:popIn .5s cubic-bezier(.4,0,.2,1) both}
+@keyframes popIn{0%{transform:scale(0) rotate(-15deg);opacity:0}70%{transform:scale(1.15) rotate(3deg)}100%{transform:scale(1) rotate(0);opacity:1}}
+.del-label{font-size:16px;font-weight:900;color:var(--green)}
+.del-sub{font-size:12px;color:var(--muted)}
+.confetti-wrap{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.cf{position:absolute;top:-12px;border-radius:2px;animation:cfFall linear infinite}
+@keyframes cfFall{from{transform:translateY(0) rotate(0deg)}to{transform:translateY(110vh) rotate(720deg)}}
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
-        }
+/* Placeholder vacío */
+.anim-placeholder{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:var(--muted)}
+.anim-placeholder .ap-ico{font-size:56px}
+.anim-placeholder p{font-size:14px;font-weight:700}
+.anim-placeholder small{font-size:12px}
 
-        thead th {
-            background: var(--surface);
-            padding: 14px 16px;
-            text-align: left;
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--muted);
-            border-bottom: 1px solid var(--border);
-        }
+/* ── REPARTIDORES ── */
+.drivers-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:16px}
+.dc{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;text-align:center;position:relative;overflow:hidden;transition:transform .2s}
+.dc::before{content:'';position:absolute;top:0;left:0;right:0;height:50px;background:var(--grad);opacity:.12}
+.dc:hover{transform:translateY(-3px)}
+.dc-av{width:64px;height:64px;border-radius:50%;margin:0 auto 10px;background:var(--grad);display:flex;align-items:center;justify-content:center;font-size:28px;border:3px solid var(--orange);position:relative;z-index:1}
+.dc-name{font-size:15px;font-weight:800;margin-bottom:3px}
+.dc-id{font-size:11px;color:var(--muted);font-family:monospace}
+.dc-st{display:inline-flex;align-items:center;gap:5px;margin-top:8px;padding:4px 12px;border-radius:20px;font-size:11px;font-weight:800}
+.dc-st.avail{background:rgba(52,199,89,.15);color:var(--green)}
+.dc-st.busy{background:rgba(255,107,0,.15);color:var(--orange)}
+.dc-deliveries{margin-top:6px;font-size:11px;color:var(--muted)}
 
-        tbody tr {
-            border-bottom: 1px solid var(--border);
-            transition: background 0.15s;
-        }
+/* ── LOG ── */
+.event-log{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-top:24px}
+.evlog-hdr{padding:12px 14px;background:var(--card2);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.ev-list{max-height:260px;overflow-y:auto;padding:6px 0}
+.ev{padding:7px 14px;border-bottom:1px solid rgba(255,255,255,.03);display:flex;gap:10px;align-items:flex-start;animation:evIn .2s ease}
+@keyframes evIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+.ev-time{font-size:10px;color:var(--muted);font-family:monospace;flex-shrink:0;padding-top:1px}
+.ev-msg{font-size:12px;line-height:1.4}
+.ev-empty{padding:24px;text-align:center;color:var(--muted);font-size:12px}
+.btn-sm{background:transparent;border:1px solid var(--border);color:var(--muted);padding:3px 9px;border-radius:5px;cursor:pointer;font-size:10px}
+.btn-sm:hover{border-color:var(--text);color:var(--text)}
 
-        tbody tr:last-child { border-bottom: none; }
-        tbody tr:hover { background: rgba(255,255,255,0.03); }
+/* ── TOAST ── */
+.toast-container{position:fixed;top:70px;right:20px;display:flex;flex-direction:column;gap:8px;z-index:9999}
+.toast{background:var(--card);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px;min-width:280px;max-width:360px;box-shadow:var(--shadow);display:flex;align-items:flex-start;gap:10px;position:relative;overflow:hidden;animation:tIn .25s cubic-bezier(.4,0,.2,1)}
+@keyframes tIn{from{opacity:0;transform:translateX(50px)}to{opacity:1;transform:translateX(0)}}
+.toast.out{animation:tOut .25s ease forwards}
+@keyframes tOut{to{opacity:0;transform:translateX(50px)}}
+.t-bar{position:absolute;bottom:0;left:0;height:3px;background:var(--grad);animation:tBar 4s linear forwards}
+@keyframes tBar{from{width:100%}to{width:0}}
+.t-ico{font-size:20px;flex-shrink:0}
+.t-title{font-size:12px;font-weight:800;margin-bottom:1px}
+.t-msg{font-size:11px;color:var(--muted)}
+.t-close{position:absolute;top:8px;right:10px;background:none;border:none;color:var(--muted);cursor:pointer;font-size:13px}
+.toast.success{border-left:3px solid var(--green)}
+.toast.info{border-left:3px solid var(--blue)}
+.toast.warning{border-left:3px solid var(--orange)}
+.toast.error{border-left:3px solid var(--red)}
 
-        tbody td {
-            padding: 14px 16px;
-            font-size: 13px;
-            vertical-align: middle;
-        }
+/* ── MODAL ── */
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.8);z-index:1000;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:var(--card);border:1px solid var(--border);border-radius:20px;width:100%;max-width:500px;overflow:hidden;animation:mIn .25s cubic-bezier(.4,0,.2,1)}
+@keyframes mIn{from{opacity:0;transform:scale(.95)}to{opacity:1;transform:scale(1)}}
+.m-hdr{padding:18px 22px;background:var(--grad);display:flex;align-items:center;justify-content:space-between}
+.m-hdr h2{font-size:17px;font-weight:900;color:#fff}
+.m-close{background:rgba(255,255,255,.2);border:none;color:#fff;width:30px;height:30px;border-radius:50%;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.m-body{padding:20px}
+.food-menu{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:16px}
+.food-item{background:var(--card2);border:2px solid var(--border);border-radius:var(--radius-sm);padding:10px;cursor:pointer;transition:all .2s;display:flex;flex-direction:column;align-items:center;gap:5px;text-align:center}
+.food-item:hover{border-color:var(--orange);background:rgba(255,107,0,.07)}
+.food-item.selected{border-color:var(--orange);background:rgba(255,107,0,.12)}
+.food-item-emoji{font-size:36px;line-height:1}
+.food-item-name{font-size:11px;font-weight:800}
+.food-item-price{font-size:11px;color:var(--orange);font-weight:700}
+.form-group{margin-bottom:12px}
+.form-label{font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px;display:block}
+.form-input{width:100%;padding:10px 12px;background:var(--card2);border:1px solid var(--border);border-radius:9px;color:var(--text);font-size:13px;outline:none;transition:border-color .2s;font-family:inherit}
+.form-input:focus{border-color:var(--orange)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.m-footer{padding:14px 22px;background:var(--card2);border-top:1px solid var(--border);display:flex;gap:10px;justify-content:flex-end}
+.btn-cancel{padding:9px 18px;background:var(--card);border:1px solid var(--border);border-radius:9px;color:var(--muted);font-size:12px;font-weight:700;cursor:pointer}
 
-        .order-id {
-            font-family: 'Courier New', monospace;
-            font-size: 11px;
-            color: var(--muted);
-        }
+/* ── BUSCANDO REPARTIDOR ── */
+.search-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:1100;align-items:center;justify-content:center;flex-direction:column}
+.search-overlay.open{display:flex}
+.search-box{background:var(--card);border:1px solid var(--border);border-radius:22px;padding:36px;text-align:center;min-width:300px;box-shadow:var(--shadow)}
+.rings{position:relative;width:110px;height:110px;margin:0 auto 18px}
+.ring{position:absolute;border-radius:50%;border:3px solid transparent;border-top-color:var(--orange)}
+.r1{inset:0;animation:spin 1s linear infinite}
+.r2{inset:11px;animation:spin 1.5s linear infinite reverse;border-top-color:var(--orange2)}
+.r3{inset:22px;animation:spin 2s linear infinite;border-top-color:var(--yellow)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.ring-icon{position:absolute;inset:32px;display:flex;align-items:center;justify-content:center;font-size:26px}
+.search-title{font-size:18px;font-weight:900;color:var(--orange)}
+.search-sub{font-size:12px;color:var(--muted);margin-top:5px}
+.search-dots::after{content:'';animation:dots 1.5s infinite}
+@keyframes dots{0%{content:''}33%{content:'.'}66%{content:'..'}100%{content:'...'}}
 
-        /* ================================================
-           BADGES DE ESTADO
-           ================================================ */
-        .badge {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 11px;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
+/* sin Leaflet */
 
-        .badge-dot { width: 6px; height: 6px; border-radius: 50%; }
-
-        .badge.CREADO      { background: rgba(96,125,139,0.2); color: #90a4ae; }
-        .badge.ASIGNADO    { background: rgba(33,150,243,0.2); color: #64b5f6; }
-        .badge.EN_CAMINO   { background: rgba(255,152,0,0.2);  color: #ffb74d; }
-        .badge.LLEGANDO    { background: rgba(156,39,176,0.2); color: #ce93d8; }
-        .badge.ENTREGADO   { background: rgba(76,175,80,0.2);  color: #81c784; }
-
-        .badge.CREADO    .badge-dot { background: #90a4ae; }
-        .badge.ASIGNADO  .badge-dot { background: #64b5f6; }
-        .badge.EN_CAMINO .badge-dot { background: #ffb74d; animation: pulse 1.5s infinite; }
-        .badge.LLEGANDO  .badge-dot { background: #ce93d8; animation: pulse 1s infinite; }
-        .badge.ENTREGADO .badge-dot { background: #81c784; }
-
-        /* ================================================
-           HISTORIAL DE EVENTOS
-           ================================================ */
-        .log-container {
-            background: var(--card);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            overflow: hidden;
-            box-shadow: var(--shadow);
-        }
-
-        .log-header {
-            background: var(--surface);
-            padding: 14px 16px;
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-        }
-
-        .log-list {
-            max-height: 320px;
-            overflow-y: auto;
-            padding: 8px 0;
-        }
-
-        .log-list::-webkit-scrollbar { width: 4px; }
-        .log-list::-webkit-scrollbar-track { background: transparent; }
-        .log-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
-
-        .log-entry {
-            padding: 10px 16px;
-            border-bottom: 1px solid rgba(255,255,255,0.03);
-            display: flex;
-            align-items: flex-start;
-            gap: 12px;
-            animation: slideIn 0.3s ease;
-        }
-
-        @keyframes slideIn {
-            from { opacity: 0; transform: translateX(-10px); }
-            to   { opacity: 1; transform: translateX(0); }
-        }
-
-        .log-time {
-            font-size: 11px;
-            color: var(--muted);
-            font-family: 'Courier New', monospace;
-            flex-shrink: 0;
-            margin-top: 2px;
-        }
-
-        .log-msg { font-size: 13px; }
-
-        .log-empty {
-            padding: 40px;
-            text-align: center;
-            color: var(--muted);
-            font-size: 13px;
-        }
-
-        /* ================================================
-           EMPTY STATE
-           ================================================ */
-        .empty-state {
-            padding: 48px;
-            text-align: center;
-            color: var(--muted);
-        }
-
-        .empty-state .icon { font-size: 40px; margin-bottom: 12px; }
-        .empty-state p { font-size: 14px; }
-
-        /* ================================================
-           HIGHLIGHT ROW ANIMATION
-           ================================================ */
-        @keyframes highlightRow {
-            0%   { background: rgba(255,102,0,0.15); }
-            100% { background: transparent; }
-        }
-
-        tr.updated { animation: highlightRow 2s ease; }
-
-        /* ================================================
-           RESPONSIVE
-           ================================================ */
-        @media (max-width: 768px) {
-            header { padding: 16px; flex-direction: column; gap: 12px; }
-            main   { padding: 16px; }
-            .metrics-grid { grid-template-columns: repeat(2, 1fr); }
-            thead th:nth-child(4), tbody td:nth-child(4) { display: none; }
-        }
-    </style>
+@media(max-width:900px){
+  .tracking-layout{grid-template-columns:1fr;height:auto}
+  .delivery-scene{min-height:280px}
+}
+@media(max-width:600px){
+  .sidebar{width:52px}.main{margin-left:52px}
+  .topbar,.tab-panel{padding:10px 12px}
+  .metrics-row{grid-template-columns:repeat(2,1fr)}
+}
+</style>
 </head>
 <body>
 
-<!-- HEADER -->
-<header>
-    <div class="header-brand">
-        <div class="logo">🚀</div>
-        <div class="brand-text">
-            <h1>RAPPI-STREAM</h1>
-            <p>Plataforma de Logística en Tiempo Real</p>
-        </div>
-    </div>
-    <div class="header-actions">
-        <div class="ws-status">
-            <div class="ws-dot" id="wsDot"></div>
-            <span id="wsLabel">Desconectado</span>
-        </div>
-        <button class="btn-create" id="btnCreate" onclick="crearPedidoPrueba()" disabled>
-            + Nuevo Pedido
-        </button>
-    </div>
-</header>
+<!-- TOAST -->
+<div class="toast-container" id="toastContainer"></div>
 
-<!-- MAIN -->
-<main>
-
-    <!-- MÉTRICAS -->
-    <div class="metrics-grid">
-        <div class="metric-card">
-            <div class="metric-icon" style="background:rgba(255,102,0,0.15)">📦</div>
-            <div class="metric-data">
-                <div class="value" id="metricTotal">0</div>
-                <div class="label">Pedidos Totales</div>
-            </div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-icon" style="background:rgba(96,125,139,0.15)">🆕</div>
-            <div class="metric-data">
-                <div class="value" id="metricCreado">0</div>
-                <div class="label">Creados</div>
-            </div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-icon" style="background:rgba(33,150,243,0.15)">👤</div>
-            <div class="metric-data">
-                <div class="value" id="metricAsignado">0</div>
-                <div class="label">Asignados</div>
-            </div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-icon" style="background:rgba(255,152,0,0.15)">🚴</div>
-            <div class="metric-data">
-                <div class="value" id="metricEnCamino">0</div>
-                <div class="label">En Camino</div>
-            </div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-icon" style="background:rgba(156,39,176,0.15)">📍</div>
-            <div class="metric-data">
-                <div class="value" id="metricLlegando">0</div>
-                <div class="label">Llegando</div>
-            </div>
-        </div>
-        <div class="metric-card">
-            <div class="metric-icon" style="background:rgba(76,175,80,0.15)">✅</div>
-            <div class="metric-data">
-                <div class="value" id="metricEntregado">0</div>
-                <div class="label">Entregados</div>
-            </div>
-        </div>
+<!-- BUSCANDO REPARTIDOR -->
+<div class="search-overlay" id="searchOverlay">
+  <div class="search-box">
+    <div class="rings">
+      <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+      <div class="ring-icon">🛵</div>
     </div>
+    <div class="search-title">Buscando repartidor<span class="search-dots"></span></div>
+    <div class="search-sub">Asignando el mejor rider disponible</div>
+  </div>
+</div>
 
-    <!-- TABLA DE PEDIDOS -->
-    <div class="section-title">📋 Estado de Pedidos</div>
-    <div class="table-container">
+<!-- MODAL NUEVO PEDIDO -->
+<div class="modal-overlay" id="modalOverlay">
+  <div class="modal">
+    <div class="m-hdr">
+      <h2>🍔 Nuevo Pedido</h2>
+      <button class="m-close" onclick="cerrarModal()">✕</button>
+    </div>
+    <div class="m-body">
+      <div class="form-label">Elige tu plato</div>
+      <div class="food-menu" id="foodMenu"></div>
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Nombre</label>
+          <input class="form-input" id="iName" placeholder="María García">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Cantidad</label>
+          <input class="form-input" id="iQty" type="number" value="1" min="1" max="10">
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Dirección</label>
+        <input class="form-input" id="iAddr" placeholder="Calle 100 #15-30, Bogotá">
+      </div>
+    </div>
+    <div class="m-footer">
+      <button class="btn-cancel" onclick="cerrarModal()">Cancelar</button>
+      <button class="btn-primary" onclick="enviarPedido()">🚀 Pedir ahora</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div class="app">
+  <!-- SIDEBAR -->
+  <nav class="sidebar">
+    <div class="sidebar-logo">🍔</div>
+    <button class="nav-btn active" data-tab="tab-dash" onclick="goTab(this,'tab-dash')">
+      <span>📊</span><span class="lbl">Panel</span>
+    </button>
+    <button class="nav-btn" data-tab="tab-orders" onclick="goTab(this,'tab-orders')">
+      <span>📋</span><span class="lbl">Pedidos</span>
+    </button>
+    <button class="nav-btn" data-tab="tab-track" onclick="goTab(this,'tab-track')">
+      <span>📍</span><span class="lbl">Track</span>
+    </button>
+    <button class="nav-btn" data-tab="tab-drivers" onclick="goTab(this,'tab-drivers')">
+      <span>🛵</span><span class="lbl">Riders</span>
+    </button>
+  </nav>
+
+  <div class="main">
+    <!-- TOPBAR -->
+    <header class="topbar">
+      <div>
+        <h1>🍔 Rappi-Stream Delivery</h1>
+        <p>Plataforma de logística en tiempo real</p>
+      </div>
+      <div class="topbar-right">
+        <div class="ws-pill">
+          <div class="ws-dot" id="wsDot"></div>
+          <span id="wsLabel">Conectando...</span>
+        </div>
+        <button class="btn-primary" id="btnCreate" onclick="abrirModal()" disabled>+ Nuevo Pedido</button>
+      </div>
+    </header>
+
+    <!-- TABS NAV -->
+    <nav class="tabs-nav">
+      <button class="tab-btn active" data-tab="tab-dash" onclick="goTab(this,'tab-dash')">📊 Dashboard</button>
+      <button class="tab-btn" data-tab="tab-orders" onclick="goTab(this,'tab-orders')">
+        📋 Pedidos <span class="tab-badge" id="badgeN">0</span>
+      </button>
+      <button class="tab-btn" data-tab="tab-track" onclick="goTab(this,'tab-track')">📍 Seguimiento en Vivo</button>
+      <button class="tab-btn" data-tab="tab-drivers" onclick="goTab(this,'tab-drivers')">🛵 Repartidores</button>
+    </nav>
+
+    <!-- ═══ DASHBOARD ═══ -->
+    <div class="tab-panel active" id="tab-dash">
+      <div class="metrics-row">
+        <div class="metric-card"><span class="m-icon">📦</span><div class="m-val" id="mTotal">0</div><div class="m-label">Total</div></div>
+        <div class="metric-card"><span class="m-icon">🆕</span><div class="m-val" id="mCreado">0</div><div class="m-label">Recibidos</div></div>
+        <div class="metric-card"><span class="m-icon">🛵</span><div class="m-val" id="mEnCamino">0</div><div class="m-label">En camino</div></div>
+        <div class="metric-card"><span class="m-icon">📍</span><div class="m-val" id="mLlegando">0</div><div class="m-label">Llegando</div></div>
+        <div class="metric-card"><span class="m-icon">✅</span><div class="m-val" id="mEntregado">0</div><div class="m-label">Entregados</div></div>
+        <div class="metric-card"><span class="m-icon">⚡</span><div class="m-val" id="mActivos">0</div><div class="m-label">Activos ahora</div></div>
+      </div>
+      <div class="sec-hdr"><span class="sec-title">🔥 Actividad reciente</span></div>
+      <div class="table-wrap">
         <table>
-            <thead>
-                <tr>
-                    <th>ID Pedido</th>
-                    <th>Cliente</th>
-                    <th>Producto</th>
-                    <th>Dirección</th>
-                    <th>Repartidor</th>
-                    <th>Estado</th>
-                    <th>Última Act.</th>
-                </tr>
-            </thead>
-            <tbody id="ordersTableBody">
-                <tr>
-                    <td colspan="7">
-                        <div class="empty-state">
-                            <div class="icon">📭</div>
-                            <p>No hay pedidos aún. Crea uno con el botón "Nuevo Pedido".</p>
-                        </div>
-                    </td>
-                </tr>
-            </tbody>
+          <thead><tr><th>N° Pedido</th><th>Plato</th><th>Cliente</th><th>Repartidor</th><th>Estado</th><th>Hora</th></tr></thead>
+          <tbody id="recentTbody"><tr><td colspan="6"><div class="empty"><div class="ei">🍽️</div><p>Crea tu primer pedido</p></div></td></tr></tbody>
         </table>
+      </div>
+      <div class="event-log">
+        <div class="evlog-hdr"><span class="sec-title" style="font-size:13px;margin:0">⚡ Eventos del sistema</span><button class="btn-sm" onclick="limpiarLog()">Limpiar</button></div>
+        <div class="ev-list" id="evList"><div class="ev-empty" id="evEmpty">Esperando eventos...</div></div>
+      </div>
     </div>
 
-    <!-- HISTORIAL -->
-    <div class="section-title">📡 Historial de Eventos</div>
-    <div class="log-container">
-        <div class="log-header">
-            <span class="section-title" style="margin:0">Eventos en tiempo real</span>
-            <button onclick="limpiarLog()"
-                style="background:transparent;border:1px solid var(--border);color:var(--muted);
-                       padding:4px 12px;border-radius:6px;cursor:pointer;font-size:11px;">
-                Limpiar
-            </button>
+    <!-- ═══ PEDIDOS ═══ -->
+    <div class="tab-panel" id="tab-orders">
+      <div class="sec-hdr"><span class="sec-title">📋 Todos los Pedidos</span><button class="btn-primary" onclick="abrirModal()">+ Nuevo</button></div>
+      <div class="table-wrap">
+        <div class="tbl-filters">
+          <input class="f-search" id="searchInput" placeholder="🔍 Buscar por ID, cliente o producto..." oninput="renderOrders()">
+          <button class="f-btn active" data-f="ALL"       onclick="setF(this,'ALL')">Todos</button>
+          <button class="f-btn" data-f="CREADO"           onclick="setF(this,'CREADO')">🆕</button>
+          <button class="f-btn" data-f="ASIGNADO"         onclick="setF(this,'ASIGNADO')">👤</button>
+          <button class="f-btn" data-f="EN_CAMINO"        onclick="setF(this,'EN_CAMINO')">🛵</button>
+          <button class="f-btn" data-f="LLEGANDO"         onclick="setF(this,'LLEGANDO')">📍</button>
+          <button class="f-btn" data-f="ENTREGADO"        onclick="setF(this,'ENTREGADO')">✅</button>
         </div>
-        <div class="log-list" id="logList">
-            <div class="log-empty" id="logEmpty">Esperando eventos del sistema...</div>
-        </div>
+        <table>
+          <thead><tr><th>N° Pedido</th><th>Plato</th><th>Cliente</th><th>Dirección</th><th>Repartidor</th><th>Estado</th><th>Hora</th><th></th></tr></thead>
+          <tbody id="ordersTbody"><tr><td colspan="8"><div class="empty"><div class="ei">🍔</div><p>Sin pedidos aún</p></div></td></tr></tbody>
+        </table>
+      </div>
     </div>
 
-</main>
+    <!-- ═══ SEGUIMIENTO ═══ -->
+    <div class="tab-panel" id="tab-track">
+      <div class="tracking-layout">
+        <!-- Panel izquierdo -->
+        <div class="track-left">
+          <div class="track-left-hdr">
+            <h3>📍 Seguimiento en Vivo</h3>
+            <p id="trackHint">Selecciona un pedido para ver su ruta</p>
+          </div>
 
-<!-- SockJS + STOMP -->
-<script src="https://cdn.jsdelivr.net/npm/sockjs-client@1/dist/sockjs.min.js"></script>
+          <!-- Detalle cuando hay pedido seleccionado -->
+          <div id="trackDetail" style="display:none">
+            <div class="active-order">
+              <div class="ao-id" id="trackId">—</div>
+              <div class="ao-customer" id="trackCustomer">—</div>
+              <div class="ao-addr" id="trackAddr">—</div>
+              <div class="ao-product"><span id="trackFoodEmoji">🍔</span> <span id="trackProduct">—</span> × <span id="trackQty">1</span></div>
+            </div>
+
+            <!-- Repartidor -->
+            <div class="driver-card-inline" id="driverCard" style="display:none">
+              <div class="dci-av" id="dciAv">🛵</div>
+              <div>
+                <div class="dci-name" id="dciName">—</div>
+                <div class="dci-id" id="dciId">—</div>
+                <div class="dci-status" id="dciStatus">En ruta</div>
+              </div>
+            </div>
+
+            <!-- Personaje animado -->
+            <div class="char-stage" id="charStage">
+              <span class="char-emoji" id="charEmoji">👨‍🍳</span>
+              <div class="char-label" id="charLabel">Preparando tu pedido</div>
+              <div class="char-sub" id="charSub">Tu comida estará lista pronto</div>
+            </div>
+
+            <!-- Barra progreso -->
+            <div class="prog-wrap">
+              <div class="prog-track"><div class="prog-fill" id="progFill" style="width:0%"></div></div>
+              <div class="prog-pct" id="progPct">0%</div>
+            </div>
+
+            <!-- ETA -->
+            <div style="padding:0 16px 10px;font-size:12px;color:var(--muted)">
+              ⏱ ETA estimado: <span id="etaLabel" style="color:var(--orange);font-weight:800">—</span>
+            </div>
+
+            <!-- Stepper -->
+            <div class="stepper">
+              <div class="stepper-title">Estado del pedido</div>
+              <div class="steps" id="stepsEl"></div>
+            </div>
+          </div>
+
+          <!-- Lista de pedidos activos -->
+          <div class="track-left-hdr" style="border-top:1px solid var(--border)">
+            <h3>Pedidos activos</h3>
+          </div>
+          <div class="orders-list" id="trackList">
+            <div class="empty" style="padding:24px"><div class="ei" style="font-size:28px">🛵</div><p>Sin pedidos activos</p></div>
+          </div>
+        </div>
+
+        <!-- Panel derecho: Animación de entrega -->
+        <div class="map-panel">
+          <div class="map-hdr">
+            <h3>🛵 Seguimiento en tiempo real</h3>
+            <div class="map-eta" id="mapEta">— ETA</div>
+          </div>
+
+          <!-- Escena animada -->
+          <div class="delivery-scene" id="deliveryScene" style="display:none">
+
+            <!-- Estrellas de fondo -->
+            <div class="sky-stars" id="skyStars"></div>
+
+            <!-- Edificios ciudad -->
+            <div class="scene-city" id="sceneCity"></div>
+
+            <!-- Carretera -->
+            <div class="scene-road">
+              <div class="road-edge-top"></div>
+              <div class="road-center-line"><div class="road-dashes"></div></div>
+              <div class="road-edge-bot"></div>
+            </div>
+
+            <!-- Restaurante (origen) -->
+            <div class="scene-rest">
+              <span class="loc-icon">🍔</span>
+              <span class="loc-label rest-label">Restaurante</span>
+            </div>
+
+            <!-- Destino -->
+            <div class="scene-dest" id="sceneDest">
+              <span class="loc-icon">📍</span>
+              <span class="loc-label dest-label">Tu casa</span>
+            </div>
+
+            <!-- Moto -->
+            <div class="moto-wrap" id="motoWrap">
+              <!-- SVG moto de perfil -->
+              <svg class="moto-svg" viewBox="0 0 110 68" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Rueda trasera -->
+                <circle class="wheel" cx="22" cy="52" r="14" stroke="#FF6B00" stroke-width="4" fill="#1a1a1a"/>
+                <circle cx="22" cy="52" r="6" fill="#FF6B00" opacity=".5"/>
+                <!-- Rueda delantera -->
+                <circle class="wheel" cx="85" cy="52" r="14" stroke="#FF6B00" stroke-width="4" fill="#1a1a1a"/>
+                <circle cx="85" cy="52" r="6" fill="#FF6B00" opacity=".5"/>
+                <!-- Chasis -->
+                <path d="M22 52 L38 28 L62 24 L85 36 L85 52" stroke="#FF9500" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+                <!-- Motor / cuerpo -->
+                <path d="M36 28 L60 24 L72 36 L50 42 Z" fill="#FF6B00" opacity=".9"/>
+                <!-- Manillar -->
+                <path d="M80 24 L85 36" stroke="#ccc" stroke-width="2.5" stroke-linecap="round"/>
+                <line x1="75" y1="22" x2="88" y2="22" stroke="#aaa" stroke-width="2" stroke-linecap="round"/>
+                <!-- Asiento -->
+                <path d="M44 24 Q54 20 65 22" stroke="#888" stroke-width="3" stroke-linecap="round" fill="none"/>
+                <!-- Repartidor (casco + cuerpo) -->
+                <circle cx="58" cy="14" r="9" fill="#FF9500"/>
+                <path d="M50 14 Q52 8 58 7 Q64 8 66 14 Z" fill="#FF3B30"/>
+                <!-- Visor casco -->
+                <path d="M52 14 Q55 11 64 13" stroke="#87CEEB" stroke-width="2" stroke-linecap="round" fill="none"/>
+                <!-- Escudo / bolsa delivery -->
+                <rect x="34" y="30" width="14" height="10" rx="2" fill="#FF3B30" opacity=".8"/>
+                <text x="37" y="39" font-size="7" fill="white" font-weight="bold">🍔</text>
+                <!-- Escape / humo animado -->
+                <circle cx="14" cy="46" r="2" fill="#888" opacity=".5" class="exhaust"/>
+              </svg>
+              <!-- Líneas de velocidad (dentro del wrapper para posicionarlas relativas a la moto) -->
+              <div class="speed-lines">
+                <div class="sp"></div>
+                <div class="sp"></div>
+                <div class="sp"></div>
+              </div>
+            </div>
+
+            <!-- Burbuja de estado -->
+            <div class="scene-bubble" id="sceneBubble">
+              <div class="sb-icon" id="sbIcon">🛵</div>
+              <div class="sb-label" id="sbLabel">En camino</div>
+              <div class="sb-sub" id="sbSub">Tu pedido está en ruta</div>
+            </div>
+
+            <!-- Overlay Chef (CREADO) -->
+            <div class="chef-scene" id="chefScene" style="display:none">
+              <div class="chef-figure">👨‍🍳</div>
+              <div class="steam-row">
+                <div class="stm"></div><div class="stm"></div><div class="stm"></div>
+              </div>
+              <div class="chef-label" id="chefLabel">Preparando tu pedido</div>
+              <div class="chef-sub" id="chefSub">Tu comida estará lista pronto</div>
+            </div>
+
+            <!-- Overlay Entregado -->
+            <div class="delivered-scene" id="deliveredScene" style="display:none">
+              <div class="confetti-wrap" id="confettiWrap"></div>
+              <div class="del-check">🎉</div>
+              <div class="del-label">¡Pedido entregado!</div>
+              <div class="del-sub">¡Que lo disfrutes!</div>
+            </div>
+
+          </div><!-- /delivery-scene -->
+
+          <!-- Placeholder sin pedido -->
+          <div class="anim-placeholder" id="animPlaceholder">
+            <span class="ap-ico">🛵</span>
+            <p>Seguimiento de entrega</p>
+            <small>Selecciona un pedido activo para ver la animación</small>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ REPARTIDORES ═══ -->
+    <div class="tab-panel" id="tab-drivers">
+      <div class="sec-hdr">
+        <span class="sec-title">🛵 Repartidores</span>
+        <span style="font-size:12px;color:var(--muted)">5 registrados</span>
+      </div>
+      <div class="drivers-grid" id="driversGrid"></div>
+    </div>
+
+  </div><!-- /main -->
+</div><!-- /app -->
+
+<!-- sin Leaflet -->
+<!-- STOMP sobre WebSocket nativo (sin SockJS) -->
 <script src="https://cdn.jsdelivr.net/npm/stompjs@2.3.3/lib/stomp.min.js"></script>
 
 <script>
-// ================================================
-// ESTADO LOCAL DEL DASHBOARD
-// ================================================
-const orders = new Map(); // orderId → OrderStatusDTO
-let stompClient = null;
-let reconectarTimer = null;
+/* ══════════════════════════════════════════════════
+   DATOS ESTÁTICOS
+══════════════════════════════════════════════════ */
+const FOOD = [
+  {key:'hamburguesa', name:'Hamburguesa Doble', price:'$18.900', emoji:'🍔'},
+  {key:'tacos',       name:'Tacos x3',          price:'$14.500', emoji:'🌮'},
+  {key:'papas',       name:'Papas Fritas',       price:'$8.900',  emoji:'🍟'},
+  {key:'pizza',       name:'Pizza Familiar',     price:'$32.000', emoji:'🍕'},
+  {key:'hotdog',      name:'Hot Dog Especial',   price:'$12.500', emoji:'🌭'},
+  {key:'alitas',      name:'Alitas BBQ x10',     price:'$22.000', emoji:'🍗'},
+  {key:'nuggets',     name:'Nuggets x10',        price:'$15.900', emoji:'🍗'},
+  {key:'burrito',     name:'Burrito Supremo',    price:'$16.500', emoji:'🌯'},
+];
 
-// ================================================
-// CONEXIÓN WEBSOCKET
-// ================================================
-function conectar() {
-    const socket = new SockJS('/ws');
-    stompClient = Stomp.over(socket);
-    stompClient.debug = null; // silenciar logs de STOMP en consola
+const DRIVERS = [
+  {id:'D-001', name:'Carlos Mendoza',  emoji:'🧑'},
+  {id:'D-002', name:'Laura Rodríguez', emoji:'👩'},
+  {id:'D-003', name:'Andrés Torres',   emoji:'🧑'},
+  {id:'D-004', name:'Valentina Gómez', emoji:'👩'},
+  {id:'D-005', name:'Miguel Herrera',  emoji:'🧑'},
+];
 
-    stompClient.connect({}, onConectado, onDesconectado);
+const NAMES    = ['María García','Carlos López','Laura Martínez','Andrés Torres','Valentina Gómez','Santiago Ruiz','Daniela Castro'];
+const ADDRS    = ['Calle 100 #15-30, Bogotá','Carrera 7 #45-12, Bogotá','Av. El Dorado #90-11, Bogotá','Calle 72 #10-07, Bogotá','Carrera 11 #93-50, Bogotá'];
+
+// Configuración de cada estado: animación del personaje
+const STATE_CFG = {
+  CREADO:    {pct:10,  eta:'~25 min', ico:'👨‍🍳', label:'Preparando tu pedido',       sub:'Tu comida estará lista pronto',   anim:'cook'},
+  ASIGNADO:  {pct:28,  eta:'~20 min', ico:'🔍', label:'Repartidor en camino',          sub:'Ya viene hacia el restaurante',   anim:'search'},
+  EN_CAMINO: {pct:60,  eta:'~12 min', ico:'🛵', label:'¡Tu pedido va en camino!',      sub:'El repartidor está en ruta',      anim:'ride'},
+  LLEGANDO:  {pct:85,  eta:'~2 min',  ico:'🏃', label:'¡Ya casi llega!',               sub:'El repartidor está muy cerca',    anim:'run'},
+  ENTREGADO: {pct:100, eta:'Entregado',ico:'🎉', label:'¡Pedido entregado!',           sub:'¡Que lo disfrutes!',              anim:'done'},
+};
+const STATE_ORDER = {CREADO:0, ASIGNADO:1, EN_CAMINO:2, LLEGANDO:3, ENTREGADO:4};
+const STEP_DEFS   = [
+  {s:'CREADO',    ico:'🆕', name:'Pedido recibido',      desc:'Ingresó al sistema'},
+  {s:'ASIGNADO',  ico:'🛵', name:'Repartidor asignado',  desc:'Se dirige al restaurante'},
+  {s:'EN_CAMINO', ico:'🚴', name:'En camino',            desc:'Tu pedido está en ruta'},
+  {s:'LLEGANDO',  ico:'📍', name:'Llegando',             desc:'Ya casi llega'},
+  {s:'ENTREGADO', ico:'✅', name:'Entregado',            desc:'¡Disfruta!'},
+];
+
+/* Las constantes de coordenadas Leaflet ya no se usan */
+
+/* ══════════════════════════════════════════════════
+   ESTADO GLOBAL
+══════════════════════════════════════════════════ */
+const orders   = new Map();
+let filterSt   = 'ALL';
+let selectedId = null;
+let stompCli   = null;
+let selFood    = FOOD[0];
+
+// ── Variables animación (reemplazan Leaflet) ──
+let motoAnimFrame   = null;
+let motoPos         = 0;   // 0.0 → 1.0 progreso en la carretera
+let motoTarget      = 0;
+let motoSpeed       = 0;
+
+/* ══════════════════════════════════════════════════
+   INIT
+══════════════════════════════════════════════════ */
+window.addEventListener('DOMContentLoaded', () => {
+  renderFoodMenu();
+  renderDriversGrid();
+  buildSteps();
+  conectarWS();
+  evLog('🟡 Iniciando Rappi-Stream Delivery...', 'info');
+});
+
+/* ══════════════════════════════════════════════════
+   TABS
+══════════════════════════════════════════════════ */
+function goTab(btn, id) {
+  document.querySelectorAll('.tab-btn,.nav-btn').forEach(b => { if(b.dataset.tab) b.classList.remove('active'); });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll(`[data-tab="${id}"]`).forEach(b => b.classList.add('active'));
+  document.getElementById(id).classList.add('active');
+  // Sin mapa Leaflet — no necesita inicialización al abrir el tab
+  if (id === 'tab-track') { /* noop */ }
+}
+
+/* ══════════════════════════════════════════════════
+   WEBSOCKET — nativo, sin SockJS
+══════════════════════════════════════════════════ */
+function conectarWS() {
+  const proto  = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  const url    = proto + '//' + location.host + '/ws';
+  const socket = new WebSocket(url);
+  stompCli     = Stomp.over(socket);
+  stompCli.debug = null;
+  stompCli.connect({}, onConectado, onDesconectado);
 }
 
 function onConectado() {
-    setWsStatus(true);
-    agregarLog('🟢 Conectado al servidor WebSocket', 'sistema');
+  setDot(true);
+  evLog('🟢 Conectado al servidor WebSocket', 'success');
+  stompCli.subscribe('/topic/orders', msg => {
+    try {
+      const dto = JSON.parse(msg.body);
+      if (dto.status === 'ASIGNADO') cerrarSearch();
+      procesarDTO(dto);
+    } catch(e) { console.error('WS parse error:', e); }
+  });
+  // Hidratar estado inicial: cargar todos los pedidos existentes
+  // desde el aggregator para no llegar a cero al (re)conectar.
+  cargarEstadoInicial();
+}
 
-    // Suscribirse al topic de pedidos
-    stompClient.subscribe('/topic/orders', function(message) {
-        try {
-            const dto = JSON.parse(message.body);
-            procesarActualizacion(dto);
-        } catch(e) {
-            console.error('Error parseando mensaje WebSocket:', e);
-        }
+function cargarEstadoInicial() {
+  fetch('/api/orders/snapshot')
+    .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+    .then(lista => {
+      if (!lista || !lista.length) return;
+      // Procesar en orden cronológico (lastUpdated ascendente)
+      // para que el estado final de cada pedido quede correcto.
+      lista
+        .slice()
+        .sort((a, b) => new Date(a.lastUpdated || 0) - new Date(b.lastUpdated || 0))
+        .forEach(dto => {
+          // Solo insertar si no tenemos ya una versión más reciente
+          // (puede que un evento WS ya haya llegado antes del fetch)
+          const existing = orders.get(dto.orderId);
+          if (!existing || new Date(dto.lastUpdated) >= new Date(existing.lastUpdated)) {
+            orders.set(dto.orderId, dto);
+          }
+        });
+      renderRecent();
+      renderOrders();
+      updateMetrics();
+      updateBadge();
+      renderTrackList();
+      evLog(`📦 Estado inicial cargado — ${lista.length} pedido${lista.length !== 1 ? 's' : ''}`, 'info');
+    })
+    .catch(err => {
+      // No es crítico: el sistema seguirá recibiendo actualizaciones por WS
+      evLog('⚠️ No se pudo cargar estado inicial: ' + err.message, 'error');
     });
 }
 
 function onDesconectado() {
-    setWsStatus(false);
-    agregarLog('🔴 Desconectado del servidor. Reconectando en 5s...', 'error');
-    reconectarTimer = setTimeout(conectar, 5000);
+  setDot(false);
+  evLog('🔴 Desconectado. Reconectando en 4s...', 'error');
+  setTimeout(conectarWS, 4000);
 }
 
-function setWsStatus(conectado) {
-    document.getElementById('wsDot').className = 'ws-dot' + (conectado ? ' connected' : '');
-    document.getElementById('wsLabel').textContent = conectado ? 'Conectado' : 'Desconectado';
-    document.getElementById('btnCreate').disabled = !conectado;
+function setDot(on) {
+  document.getElementById('wsDot').className = 'ws-dot' + (on ? ' on' : '');
+  document.getElementById('wsLabel').textContent = on ? '🟢 En vivo' : 'Desconectado';
+  document.getElementById('btnCreate').disabled = !on;
 }
 
-// ================================================
-// PROCESAMIENTO DE ACTUALIZACIONES
-// ================================================
-function procesarActualizacion(dto) {
-    const esNuevo = !orders.has(dto.orderId);
-    orders.set(dto.orderId, dto);
+/* ══════════════════════════════════════════════════
+   PROCESAR DTO
+══════════════════════════════════════════════════ */
+function procesarDTO(dto) {
+  const isNew = !orders.has(dto.orderId);
+  orders.set(dto.orderId, dto);
 
-    actualizarTabla(dto, esNuevo);
-    actualizarMetricas();
-    agregarLog(construirMensajeLog(dto), dto.status);
+  renderRecent();
+  renderOrders();
+  updateMetrics();
+  updateBadge();
+  renderTrackList();
+
+  // Si es el pedido seleccionado, actualizar detalle y mapa
+  if (selectedId === dto.orderId) {
+    updateTrackDetail(dto);
+    updateRiderSpeed(dto.status);
+  }
+  // Si no hay pedido seleccionado y el pedido está activo → seleccionarlo automáticamente
+  if (!selectedId && dto.status !== 'ENTREGADO') {
+    seleccionarPedido(dto.orderId);
+  }
+
+  updateDriverCard(dto);
+  evLog(buildLogMsg(dto), dto.status);
+  mostrarToast(dto);
+  if (dto.status === 'ENTREGADO') {
+    setTimeout(() => toast('delivery','🎉',`¡Pedido entregado!`,`${dto.customerName} — ${dto.product}`), 500);
+  }
 }
 
-function construirMensajeLog(dto) {
-    const id = dto.orderId.substring(0, 8) + '...';
-    const iconos = {
-        'CREADO':    '📦',
-        'ASIGNADO':  '👤',
-        'EN_CAMINO': '🚴',
-        'LLEGANDO':  '📍',
-        'ENTREGADO': '✅'
-    };
-    const icono = iconos[dto.status] || '📋';
-    const driver = dto.driverName ? ` | ${dto.driverName}` : '';
-    return `${icono} [${id}] ${dto.customerName} → <strong>${dto.status}</strong>${driver}`;
+function buildLogMsg(dto) {
+  const id  = shortId(dto.orderId);
+  const st  = STATE_CFG[dto.status];
+  const ico = st ? st.ico : '📋';
+  const drv = dto.driverName ? ` · ${dto.driverName}` : '';
+  return `${ico} <strong>#${id}</strong> — ${esc(dto.customerName)} → <span style="color:var(--orange)">${dto.status}</span>${drv}`;
 }
 
-// ================================================
-// TABLA DE PEDIDOS
-// ================================================
-function actualizarTabla(dto, esNuevo) {
-    const tbody = document.getElementById('ordersTableBody');
+/* ══════════════════════════════════════════════════
+   HELPERS
+══════════════════════════════════════════════════ */
+function shortId(id) {
+  if (!id) return '—';
+  return id.split('-')[0].toUpperCase();
+}
+function esc(s) {
+  return s ? String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;') : '—';
+}
+function fmtTime(ts) {
+  return ts ? new Date(ts).toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',second:'2-digit'}) : '--';
+}
+function foodEmoji(p) {
+  if (!p) return '🍔';
+  const l = p.toLowerCase();
+  if(l.includes('hamburguesa')||l.includes('burger')) return '🍔';
+  if(l.includes('taco')) return '🌮';
+  if(l.includes('papa')||l.includes('frita')) return '🍟';
+  if(l.includes('pizza')) return '🍕';
+  if(l.includes('hotdog')||l.includes('hot dog')) return '🌭';
+  if(l.includes('alita')||l.includes('pollo')) return '🍗';
+  if(l.includes('nugget')) return '🍗';
+  if(l.includes('burrito')) return '🌯';
+  return '🍔';
+}
 
-    // Eliminar el empty state si existe
-    const emptyRow = tbody.querySelector('tr td[colspan]');
-    if (emptyRow) emptyRow.closest('tr').remove();
+/* ══════════════════════════════════════════════════
+   MÉTRICAS
+══════════════════════════════════════════════════ */
+function updateMetrics() {
+  const c = {CREADO:0,ASIGNADO:0,EN_CAMINO:0,LLEGANDO:0,ENTREGADO:0};
+  for(const d of orders.values()) if(c[d.status]!==undefined) c[d.status]++;
+  document.getElementById('mTotal').textContent     = orders.size;
+  document.getElementById('mCreado').textContent    = c.CREADO + c.ASIGNADO;
+  document.getElementById('mEnCamino').textContent  = c.EN_CAMINO;
+  document.getElementById('mLlegando').textContent  = c.LLEGANDO;
+  document.getElementById('mEntregado').textContent = c.ENTREGADO;
+  document.getElementById('mActivos').textContent   = c.CREADO+c.ASIGNADO+c.EN_CAMINO+c.LLEGANDO;
+}
+function updateBadge() { document.getElementById('badgeN').textContent = orders.size; }
 
-    const rowId = 'row-' + dto.orderId;
-    let row = document.getElementById(rowId);
+/* ══════════════════════════════════════════════════
+   TABLA RECIENTE
+══════════════════════════════════════════════════ */
+function renderRecent() {
+  const tbody = document.getElementById('recentTbody');
+  const list  = [...orders.values()].sort((a,b)=>new Date(b.lastUpdated||0)-new Date(a.lastUpdated||0)).slice(0,8);
+  if(!list.length){ tbody.innerHTML='<tr><td colspan="6"><div class="empty"><div class="ei">🍽️</div><p>Aún no hay pedidos</p></div></td></tr>'; return; }
+  tbody.innerHTML = list.map(d=>`
+    <tr class="flash">
+      <td><span class="order-num">#${shortId(d.orderId)}</span></td>
+      <td><div class="food-cell"><div class="food-thumb">${foodEmoji(d.product)}</div><span>${esc(d.product)} ×${d.quantity||1}</span></div></td>
+      <td><strong>${esc(d.customerName)}</strong></td>
+      <td>${d.driverName?`<div class="driver-cell"><div class="d-av">🛵</div><span>${esc(d.driverName)}</span></div>`:'<span style="color:var(--muted)">—</span>'}</td>
+      <td><span class="badge ${d.status}"><span class="badge-dot"></span>${d.status}</span></td>
+      <td style="color:var(--muted);font-size:11px">${fmtTime(d.lastUpdated)}</td>
+    </tr>
+  `).join('');
+}
 
-    if (!row) {
-        row = document.createElement('tr');
-        row.id = rowId;
-        tbody.prepend(row); // nuevos pedidos arriba
+/* ══════════════════════════════════════════════════
+   TABLA COMPLETA
+══════════════════════════════════════════════════ */
+function renderOrders() {
+  const tbody = document.getElementById('ordersTbody');
+  const q     = (document.getElementById('searchInput').value||'').toLowerCase();
+  let list    = [...orders.values()];
+  if(filterSt!=='ALL') list = list.filter(d=>d.status===filterSt);
+  if(q) list = list.filter(d=>
+    shortId(d.orderId).toLowerCase().includes(q)||
+    (d.customerName||'').toLowerCase().includes(q)||
+    (d.product||'').toLowerCase().includes(q)||
+    (d.driverName||'').toLowerCase().includes(q)
+  );
+  list.sort((a,b)=>new Date(b.lastUpdated||0)-new Date(a.lastUpdated||0));
+  if(!list.length){ tbody.innerHTML='<tr><td colspan="8"><div class="empty"><div class="ei">🔍</div><p>No hay resultados</p></div></td></tr>'; return; }
+  tbody.innerHTML = list.map(d=>`
+    <tr>
+      <td><span class="order-num">#${shortId(d.orderId)}</span></td>
+      <td><div class="food-cell"><div class="food-thumb">${foodEmoji(d.product)}</div><span>${esc(d.product)} ×${d.quantity||1}</span></div></td>
+      <td><strong>${esc(d.customerName)}</strong></td>
+      <td style="font-size:11px;color:var(--muted)">${esc(d.address||'—')}</td>
+      <td>${d.driverName?`<div class="driver-cell"><div class="d-av">🛵</div><span>${esc(d.driverName)}</span></div>`:'<span style="color:var(--muted)">—</span>'}</td>
+      <td><span class="badge ${d.status}"><span class="badge-dot"></span>${d.status}</span></td>
+      <td style="font-size:11px;color:var(--muted)">${fmtTime(d.lastUpdated)}</td>
+      <td><button class="btn-track" onclick="irATracking('${d.orderId}')">📍 Ver</button></td>
+    </tr>
+  `).join('');
+}
+
+function setF(btn, st) {
+  document.querySelectorAll('.f-btn').forEach(b=>b.classList.remove('active'));
+  btn.classList.add('active');
+  filterSt = st;
+  renderOrders();
+}
+
+/* ══════════════════════════════════════════════════
+   TRACKING
+══════════════════════════════════════════════════ */
+function renderTrackList() {
+  const container = document.getElementById('trackList');
+  // Mostrar todos los pedidos (incluyendo entregados recientes)
+  const list = [...orders.values()].sort((a,b)=>new Date(b.lastUpdated||0)-new Date(a.lastUpdated||0));
+  if(!list.length){
+    container.innerHTML='<div class="empty" style="padding:24px"><div class="ei" style="font-size:28px">🛵</div><p>Sin pedidos</p></div>';
+    return;
+  }
+  container.innerHTML = list.map(d=>`
+    <div class="oli ${selectedId===d.orderId?'selected':''}" onclick="seleccionarPedido('${d.orderId}')">
+      <div class="oli-ico">${foodEmoji(d.product)}</div>
+      <div>
+        <div class="oli-id">#${shortId(d.orderId)}</div>
+        <div class="oli-name">${esc(d.customerName)}</div>
+        <div class="oli-st">${d.status}</div>
+      </div>
+      <span class="badge ${d.status}" style="margin-left:auto;font-size:9px"><span class="badge-dot"></span>${d.status}</span>
+    </div>
+  `).join('');
+}
+
+function seleccionarPedido(orderId) {
+  selectedId = orderId;
+  renderTrackList();
+  const dto = orders.get(orderId);
+  if(!dto) return;
+  document.getElementById('trackDetail').style.display = 'block';
+  document.getElementById('trackHint').textContent = '';
+  updateTrackDetail(dto);
+  // Inicializar escena animada
+  setTimeout(() => {
+    initDeliveryScene();
+    iniciarAnimacionMapa(dto);
+  }, 150);
+}
+
+function irATracking(orderId) {
+  goTab(null, 'tab-track');
+  document.querySelectorAll('[data-tab="tab-track"]').forEach(b=>b.classList.add('active'));
+  setTimeout(() => seleccionarPedido(orderId), 200);
+}
+
+function updateTrackDetail(dto) {
+  document.getElementById('trackId').textContent = '#' + shortId(dto.orderId);
+  document.getElementById('trackCustomer').textContent = dto.customerName || '—';
+  document.getElementById('trackAddr').textContent = dto.address || '—';
+  document.getElementById('trackProduct').textContent = dto.product || '—';
+  document.getElementById('trackQty').textContent = dto.quantity || 1;
+  document.getElementById('trackFoodEmoji').textContent = foodEmoji(dto.product);
+
+  // Repartidor
+  const dCard = document.getElementById('driverCard');
+  if(dto.driverName) {
+    dCard.style.display='flex';
+    document.getElementById('dciAv').textContent = '🛵';
+    document.getElementById('dciName').textContent = dto.driverName;
+    document.getElementById('dciId').textContent = dto.driverId || '—';
+    document.getElementById('dciStatus').textContent =
+      dto.status==='EN_CAMINO'?'🛵 En ruta':
+      dto.status==='LLEGANDO'?'📍 Llegando':
+      dto.status==='ENTREGADO'?'✅ Entregado':'⏳ Listo';
+  } else {
+    dCard.style.display='none';
+  }
+
+  // Personaje
+  const cfg = STATE_CFG[dto.status];
+  if(cfg) {
+    const em = document.getElementById('charEmoji');
+    em.textContent = cfg.ico;
+    em.style.animation = getAnimStyle(cfg.anim);
+    document.getElementById('charLabel').textContent = cfg.label;
+    document.getElementById('charSub').textContent   = cfg.sub;
+  }
+
+  // Progreso
+  const pct = (cfg?.pct)||0;
+  document.getElementById('progFill').style.width = pct + '%';
+  document.getElementById('progPct').textContent   = pct + '%';
+
+  // ETA
+  document.getElementById('etaLabel').textContent = cfg?.eta || '—';
+  document.getElementById('mapEta').textContent   = cfg?.eta || '—';
+
+  // Stepper
+  updateSteps(dto.status);
+
+  // Actualizar animación del rider
+  updateRiderSpeed(dto.status);
+}
+
+function getAnimStyle(anim) {
+  const map = {
+    'cook':   'chefCook 0.8s infinite',
+    'search': 'searchSpin 1.2s linear infinite',
+    'ride':   'riderGo 0.4s infinite',
+    'run':    'deliverBounce 0.5s infinite',
+    'done':   'none',
+  };
+  return map[anim] || 'none';
+}
+
+/* ═══ Animaciones del personaje ═══ */
+const charStyles = document.createElement('style');
+charStyles.textContent = `
+@keyframes chefCook   {0%,100%{transform:rotate(-8deg) translateY(0)}50%{transform:rotate(8deg) translateY(-4px)}}
+@keyframes searchSpin {0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+@keyframes riderGo    {0%,100%{transform:translateX(0)}50%{transform:translateX(6px)}}
+@keyframes deliverBounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
+`;
+document.head.appendChild(charStyles);
+
+/* ═══ Stepper ═══ */
+function buildSteps() {
+  document.getElementById('stepsEl').innerHTML = STEP_DEFS.map(s=>`
+    <div class="step" id="step-${s.s}">
+      <div class="step-ico" id="sico-${s.s}">${s.ico}</div>
+      <div class="step-info">
+        <div class="step-name" id="snm-${s.s}">${s.name}</div>
+        <div class="step-desc">${s.desc}</div>
+      </div>
+    </div>
+  `).join('');
+}
+
+function updateSteps(curStatus) {
+  const ci = STATE_ORDER[curStatus] ?? -1;
+  STEP_DEFS.forEach((s,i) => {
+    const el = document.getElementById('step-'+s.s);
+    el.className = 'step' + (i < ci ? ' done' : i === ci ? ' active' : '');
+  });
+}
+
+/* ══════════════════════════════════════════════════
+   ANIMACIÓN ENTREGA — reemplaza Leaflet
+══════════════════════════════════════════════════ */
+
+/* Configuración por estado */
+const ANIM_CFG = {
+  CREADO:    {chef:true,  road:false, delivered:false, pos:0.00, icon:'👨‍🍳', label:'Preparando tu pedido',    sub:'Tu comida estará lista pronto'},
+  ASIGNADO:  {chef:false, road:true,  delivered:false, pos:0.08, icon:'🔍', label:'Repartidor en camino',       sub:'Ya viene hacia el restaurante'},
+  EN_CAMINO: {chef:false, road:true,  delivered:false, pos:0.42, icon:'🛵', label:'¡Tu pedido va en camino!',   sub:'El repartidor está en ruta'},
+  LLEGANDO:  {chef:false, road:true,  delivered:false, pos:0.78, icon:'📍', label:'¡Ya casi llega!',            sub:'El repartidor está muy cerca'},
+  ENTREGADO: {chef:false, road:false, delivered:true,  pos:1.00, icon:'🎉', label:'¡Pedido entregado!',         sub:'¡Que lo disfrutes!'},
+};
+
+function initDeliveryScene() {
+  // Generar estrellas una sola vez
+  const sky = document.getElementById('skyStars');
+  if (sky && !sky.dataset.built) {
+    sky.dataset.built = '1';
+    for (let i = 0; i < 40; i++) {
+      const s = document.createElement('div');
+      s.className = 'star';
+      const size = Math.random() * 2.5 + 0.5;
+      s.style.cssText = `width:${size}px;height:${size}px;top:${Math.random()*65}%;left:${Math.random()*100}%;animation-delay:${Math.random()*3}s;animation-duration:${1.5+Math.random()*2}s`;
+      sky.appendChild(s);
     }
-
-    const fechaFmt = dto.lastUpdated
-        ? new Date(dto.lastUpdated).toLocaleTimeString('es-CO', {hour:'2-digit', minute:'2-digit', second:'2-digit'})
-        : '--';
-
-    row.innerHTML = `
-        <td class="order-id">${dto.orderId.substring(0,8)}...</td>
-        <td>${esc(dto.customerName)}</td>
-        <td>${esc(dto.product)} × ${dto.quantity || 1}</td>
-        <td>${esc(dto.address || '--')}</td>
-        <td>${dto.driverName ? esc(dto.driverName) : '<span style="color:var(--muted)">—</span>'}</td>
-        <td><span class="badge ${dto.status}"><span class="badge-dot"></span>${dto.status}</span></td>
-        <td style="color:var(--muted);font-size:12px">${fechaFmt}</td>
-    `;
-
-    // Animación de actualización
-    row.classList.remove('updated');
-    void row.offsetWidth; // forzar reflow
-    row.classList.add('updated');
+  }
+  // Generar edificios una sola vez
+  const city = document.getElementById('sceneCity');
+  if (city && !city.dataset.built) {
+    city.dataset.built = '1';
+    const bldDefs = [
+      {w:28,h:60},{w:22,h:80},{w:36,h:50},{w:20,h:95},{w:30,h:65},
+      {w:24,h:45},{w:40,h:70},{w:18,h:55},{w:32,h:88},{w:26,h:48},
+      {w:22,h:72},{w:38,h:58},{w:20,h:82},{w:28,h:42},{w:34,h:65},
+    ];
+    city.innerHTML = bldDefs.map(b => {
+      const wins = [];
+      for (let r = 0; r < Math.floor(b.h/18); r++) {
+        for (let c = 0; c < Math.floor(b.w/12); c++) {
+          const on = Math.random() > 0.4;
+          wins.push(`<div class="bld-win ${on?'on':'off'}" style="left:${5+c*11}px;top:${8+r*17}px;animation-delay:${Math.random()*4}s"></div>`);
+        }
+      }
+      return `<div class="bld" style="width:${b.w}px;height:${b.h}px">${wins.join('')}</div>`;
+    }).join('');
+  }
 }
 
-// ================================================
-// MÉTRICAS
-// ================================================
-function actualizarMetricas() {
-    const counts = { CREADO:0, ASIGNADO:0, EN_CAMINO:0, LLEGANDO:0, ENTREGADO:0 };
-    for (const dto of orders.values()) {
-        if (counts[dto.status] !== undefined) counts[dto.status]++;
-    }
-    document.getElementById('metricTotal').textContent    = orders.size;
-    document.getElementById('metricCreado').textContent   = counts.CREADO;
-    document.getElementById('metricAsignado').textContent = counts.ASIGNADO;
-    document.getElementById('metricEnCamino').textContent = counts.EN_CAMINO;
-    document.getElementById('metricLlegando').textContent = counts.LLEGANDO;
-    document.getElementById('metricEntregado').textContent= counts.ENTREGADO;
+function iniciarAnimacionMapa(dto) {
+  const cfg = ANIM_CFG[dto.status];
+  if (!cfg) return;
+
+  // Mostrar escena, ocultar placeholder
+  document.getElementById('deliveryScene').style.display = 'flex';
+  document.getElementById('animPlaceholder').style.display = 'none';
+
+  const chefEl      = document.getElementById('chefScene');
+  const delivEl     = document.getElementById('deliveredScene');
+  const motoWrap    = document.getElementById('motoWrap');
+  const sceneDest   = document.getElementById('sceneDest');
+  const sceneBubble = document.getElementById('sceneBubble');
+
+  // ── Burbuja de estado ──
+  document.getElementById('sbIcon').textContent  = cfg.icon;
+  document.getElementById('sbLabel').textContent = cfg.label;
+  document.getElementById('sbSub').textContent   = cfg.sub;
+
+  // ── CREADO: mostrar chef ──
+  if (cfg.chef) {
+    chefEl.style.display   = 'flex';
+    delivEl.style.display  = 'none';
+    motoWrap.style.display = 'none';
+    sceneBubble.style.display = 'none';
+    document.getElementById('chefLabel').textContent = cfg.label;
+    document.getElementById('chefSub').textContent   = cfg.sub;
+    return;
+  }
+
+  // ── ENTREGADO: confetti ──
+  if (cfg.delivered) {
+    chefEl.style.display   = 'none';
+    delivEl.style.display  = 'flex';
+    motoWrap.style.display = 'none';
+    sceneBubble.style.display = 'none';
+    generarConfetti();
+    return;
+  }
+
+  // ── Estados con moto en carretera ──
+  chefEl.style.display   = 'none';
+  delivEl.style.display  = 'none';
+  motoWrap.style.display = 'block';
+  sceneBubble.style.display = 'block';
+
+  // Destino visible desde EN_CAMINO
+  sceneDest.classList.toggle('visible', cfg.pos > 0.3);
+
+  // Parar loop anterior
+  if (motoAnimFrame) cancelAnimationFrame(motoAnimFrame);
+
+  motoTarget = cfg.pos;
+  motoSpeed  = dto.status === 'LLEGANDO' ? 0.004 : dto.status === 'EN_CAMINO' ? 0.0018 : 0.0006;
+
+  // Ajustar posición si se retrocede (ej: recarga con estado anterior)
+  if (motoPos > cfg.pos + 0.15) motoPos = Math.max(0, cfg.pos - 0.05);
+
+  motoWrap.classList.add('riding');
+  correrMoto();
 }
 
-// ================================================
-// LOG DE EVENTOS
-// ================================================
-function agregarLog(mensaje, tipo) {
-    const logList = document.getElementById('logList');
-    const empty   = document.getElementById('logEmpty');
-    if (empty) empty.remove();
+function correrMoto() {
+  const scene   = document.getElementById('deliveryScene');
+  const motoWrap = document.getElementById('motoWrap');
+  if (!scene || !motoWrap) return;
 
-    const ahora = new Date().toLocaleTimeString('es-CO', {
-        hour:'2-digit', minute:'2-digit', second:'2-digit'
-    });
+  const sceneW  = scene.clientWidth  || 600;
+  const motoW   = 110; // ancho SVG moto en px
+  const margin  = 90;  // margen para los íconos de origen/destino
+  const roadW   = sceneW - margin * 2 - motoW;
 
-    const entry = document.createElement('div');
-    entry.className = 'log-entry';
-    entry.innerHTML = `
-        <span class="log-time">${ahora}</span>
-        <span class="log-msg">${mensaje}</span>
-    `;
+  if (motoPos < motoTarget) {
+    motoPos = Math.min(motoTarget, motoPos + motoSpeed);
+  }
 
-    logList.prepend(entry);
+  const leftPx = margin + motoPos * roadW;
+  motoWrap.style.left = leftPx + 'px';
 
-    // Limitar a 50 entradas
-    while (logList.children.length > 50) {
-        logList.removeChild(logList.lastChild);
-    }
+  if (motoPos < motoTarget - 0.001) {
+    motoAnimFrame = requestAnimationFrame(correrMoto);
+  } else {
+    motoWrap.classList.remove('riding');
+  }
 }
 
+function updateRiderSpeed(status) {
+  // Mantiene la API que llaman procesarDTO y updateTrackDetail
+  const cfg = ANIM_CFG[status];
+  if (!cfg) return;
+  if (cfg.chef || cfg.delivered) return;
+  const speeds = {ASIGNADO:0.0006, EN_CAMINO:0.0018, LLEGANDO:0.004};
+  if (speeds[status]) {
+    motoSpeed  = speeds[status];
+    motoTarget = cfg.pos;
+    if (!motoAnimFrame) correrMoto();
+  }
+}
+
+function generarConfetti() {
+  const wrap = document.getElementById('confettiWrap');
+  if (!wrap || wrap.dataset.built) return;
+  wrap.dataset.built = '1';
+  const colors = ['#FF6B00','#FF3B30','#FFCC00','#34C759','#007AFF','#AF52DE','#FF2D55'];
+  for (let i = 0; i < 50; i++) {
+    const c  = document.createElement('div');
+    c.className = 'cf';
+    const size = 6 + Math.random() * 8;
+    c.style.cssText = `left:${Math.random()*100}%;width:${size}px;height:${size}px;background:${colors[Math.floor(Math.random()*colors.length)]};animation-duration:${2+Math.random()*3}s;animation-delay:${Math.random()*2}s`;
+    wrap.appendChild(c);
+  }
+}
+
+/* ══════════════════════════════════════════════════
+   REPARTIDORES
+══════════════════════════════════════════════════ */
+function renderDriversGrid() {
+  document.getElementById('driversGrid').innerHTML = DRIVERS.map(d=>`
+    <div class="dc" id="dc-${d.id}">
+      <div class="dc-av">${d.emoji}</div>
+      <div class="dc-name">${d.name}</div>
+      <div class="dc-id">${d.id}</div>
+      <div class="dc-st avail" id="dcs-${d.id}">
+        <span style="width:6px;height:6px;border-radius:50%;background:var(--green);display:inline-block"></span>
+        Disponible
+      </div>
+      <div class="dc-deliveries" id="dcd-${d.id}">0 entregas hoy</div>
+    </div>
+  `).join('');
+}
+
+function updateDriverCard(dto) {
+  if(!dto.driverId) return;
+  const el = document.getElementById('dcs-'+dto.driverId);
+  if(!el) return;
+  const busy = dto.status !== 'ENTREGADO';
+  el.className = 'dc-st ' + (busy?'busy':'avail');
+  el.innerHTML = `<span style="width:6px;height:6px;border-radius:50%;background:${busy?'var(--orange)':'var(--green)'};display:inline-block"></span> ${busy?'En entrega':'Disponible'}`;
+  const cnt = [...orders.values()].filter(o=>o.driverId===dto.driverId&&o.status==='ENTREGADO').length;
+  const de  = document.getElementById('dcd-'+dto.driverId);
+  if(de) de.textContent = `${cnt} entrega${cnt!==1?'s':''} hoy`;
+}
+
+/* ══════════════════════════════════════════════════
+   TOASTS
+══════════════════════════════════════════════════ */
+function mostrarToast(dto) {
+  const map = {
+    CREADO:    ['info',   '🆕','Nuevo pedido',           `${dto.customerName} — ${dto.product}`],
+    ASIGNADO:  ['info',   '🛵','Repartidor asignado',    `${dto.driverName||'—'} en camino al restaurante`],
+    EN_CAMINO: ['warning','🚴','¡Pedido en camino!',     `${dto.driverName||'—'} está en ruta`],
+    LLEGANDO:  ['warning','📍','¡El rider está llegando!','Prepárate para recibir tu pedido'],
+    ENTREGADO: ['success','✅','¡Pedido entregado!',     `#${shortId(dto.orderId)} ¡Que lo disfrutes!`],
+  };
+  const c = map[dto.status];
+  if(c) toast(c[0], c[1], c[2], c[3]);
+}
+
+function toast(type, ico, title, msg) {
+  const container = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `
+    <span class="t-ico">${ico}</span>
+    <div><div class="t-title">${esc(title)}</div><div class="t-msg">${esc(msg)}</div></div>
+    <button class="t-close" onclick="closeToast(this.parentElement)">✕</button>
+    <div class="t-bar"></div>
+  `;
+  container.prepend(t);
+  setTimeout(()=>closeToast(t), 4500);
+  while(container.children.length > 5) container.removeChild(container.lastChild);
+}
+function closeToast(el) {
+  if(!el||!el.parentElement) return;
+  el.classList.add('out');
+  setTimeout(()=>el.remove(), 300);
+}
+
+/* ══════════════════════════════════════════════════
+   LOG
+══════════════════════════════════════════════════ */
+function evLog(msg, tipo) {
+  const list  = document.getElementById('evList');
+  const empty = document.getElementById('evEmpty');
+  if(empty) empty.remove();
+  const t = new Date().toLocaleTimeString('es-CO',{hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  const e = document.createElement('div');
+  e.className = 'ev';
+  e.innerHTML = `<span class="ev-time">${t}</span><span class="ev-msg">${msg}</span>`;
+  list.prepend(e);
+  while(list.children.length > 60) list.removeChild(list.lastChild);
+}
 function limpiarLog() {
-    const logList = document.getElementById('logList');
-    logList.innerHTML = '<div class="log-empty" id="logEmpty">Log limpiado.</div>';
+  document.getElementById('evList').innerHTML='<div class="ev-empty" id="evEmpty">Log limpiado.</div>';
 }
 
-// ================================================
-// CREAR PEDIDO DE PRUEBA
-// ================================================
-const nombres  = ['María García', 'Carlos López', 'Laura Martínez', 'Andrés Torres', 'Valentina Gómez'];
-const productos = ['Hamburguesa doble', 'Pizza familiar', 'Sushi combo', 'Tacos x3', 'Ensalada César', 'Pasta carbonara'];
-const calles   = ['Calle 100 #15-30', 'Carrera 7 #45-12', 'Av. El Dorado #90-11', 'Calle 72 #10-07'];
+/* ══════════════════════════════════════════════════
+   MODAL NUEVO PEDIDO
+══════════════════════════════════════════════════ */
+function renderFoodMenu() {
+  document.getElementById('foodMenu').innerHTML = FOOD.map(f=>`
+    <div class="food-item ${f.key===selFood.key?'selected':''}" onclick="selFood_fn('${f.key}')">
+      <div class="food-item-emoji">${f.emoji}</div>
+      <div class="food-item-name">${f.name}</div>
+      <div class="food-item-price">${f.price}</div>
+    </div>
+  `).join('');
+}
+function selFood_fn(key) {
+  selFood = FOOD.find(f=>f.key===key)||FOOD[0];
+  renderFoodMenu();
+}
+function abrirModal() {
+  document.getElementById('modalOverlay').classList.add('open');
+  document.getElementById('iName').value  = NAMES[Math.floor(Math.random()*NAMES.length)];
+  document.getElementById('iQty').value   = 1;
+  document.getElementById('iAddr').value  = ADDRS[Math.floor(Math.random()*ADDRS.length)];
+}
+function cerrarModal() { document.getElementById('modalOverlay').classList.remove('open'); }
 
-function crearPedidoPrueba() {
-    const request = {
-        customerName: nombres[Math.floor(Math.random() * nombres.length)],
-        product:      productos[Math.floor(Math.random() * productos.length)],
-        quantity:     Math.floor(Math.random() * 3) + 1,
-        address:      calles[Math.floor(Math.random() * calles.length)] + ', Bogotá'
-    };
-
-    agregarLog(`⏳ Enviando pedido: ${request.customerName} — ${request.product}`, 'sistema');
-
-    fetch('http://localhost:8080/api/orders', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(request)
-    })
-    .then(res => res.json())
-    .then(data => {
-        agregarLog(`✅ Pedido aceptado: orderId=${data.orderId.substring(0,8)}...`, 'ASIGNADO');
-    })
-    .catch(err => {
-        agregarLog(`❌ Error creando pedido: ${err.message}`, 'error');
-        console.error(err);
-    });
+function enviarPedido() {
+  const name = document.getElementById('iName').value.trim();
+  const qty  = parseInt(document.getElementById('iQty').value)||1;
+  const addr = document.getElementById('iAddr').value.trim();
+  if(!name||!addr){ toast('error','⚠️','Faltan datos','Completa nombre y dirección'); return; }
+  cerrarModal();
+  mostrarSearch();
+  evLog(`⏳ Enviando: ${name} — ${selFood.name}`, 'info');
+  fetch('/api/orders',{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({customerName:name, product:selFood.name, quantity:qty, address:addr})
+  })
+  .then(r=>r.json())
+  .then(data=>{
+    evLog(`✅ Aceptado: #${shortId(data.orderId)}`, 'success');
+    setTimeout(cerrarSearch, 4000);
+  })
+  .catch(err=>{
+    cerrarSearch();
+    toast('error','❌','Error',err.message);
+    evLog(`❌ Error: ${err.message}`, 'error');
+  });
 }
 
-// Escape XSS básico
-function esc(str) {
-    if (!str) return '';
-    return String(str)
-        .replace(/&/g, '&amp;')
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
-        .replace(/"/g, '&quot;');
-}
+function mostrarSearch()  { document.getElementById('searchOverlay').classList.add('open'); }
+function cerrarSearch()   { document.getElementById('searchOverlay').classList.remove('open'); }
 
-// ================================================
-// ARRANCAR
-// ================================================
-window.addEventListener('load', conectar);
+document.addEventListener('keydown', e => {
+  if(e.key==='Escape'){ cerrarModal(); cerrarSearch(); }
+});
+document.getElementById('modalOverlay').addEventListener('click', e => {
+  if(e.target===e.currentTarget) cerrarModal();
+});
 </script>
-
 </body>
 </html>

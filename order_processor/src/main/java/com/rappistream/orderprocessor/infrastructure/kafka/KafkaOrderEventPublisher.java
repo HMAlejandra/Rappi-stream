@@ -45,10 +45,16 @@ public class KafkaOrderEventPublisher implements OrderEventPublisherPort {
 
     @Override
     public void publicarOrderCreated(Pedido pedido) {
-        // ORDER_CREATED no tiene payload específico — usamos un JSON mínimo
+        // ORDER_CREATED incluye todos los datos del pedido para que el aggregator
+        // pueda construir el snapshot completo sin esperar DRIVER_ASSIGNED
+        String product      = pedido.getProduct().replace("\\", "\\\\").replace("\"", "\\\"");
+        String customerName = pedido.getCustomerName().replace("\\", "\\\\").replace("\"", "\\\"");
+        String address      = pedido.getAddress() != null
+                ? pedido.getAddress().replace("\\", "\\\\").replace("\"", "\\\"")
+                : "";
         String payloadJson = String.format(
-                "{\"orderId\":\"%s\",\"customerName\":\"%s\",\"product\":\"%s\"}",
-                pedido.getId(), pedido.getCustomerName(), pedido.getProduct()
+                "{\"orderId\":\"%s\",\"customerName\":\"%s\",\"product\":\"%s\",\"quantity\":%d,\"address\":\"%s\"}",
+                pedido.getId(), customerName, product, pedido.getQuantity(), address
         );
         publicar(pedido.getId(), OrderEventType.ORDER_CREATED, payloadJson);
         log.info("[order_processor] ORDER_CREATED publicado — orderId={}", pedido.getId());
