@@ -25,7 +25,24 @@ Ese recorrido es lo que explicas en cada turno.
 ## TURNO 2 — Arquitectura e infraestructura
 
 ### Prepara esto ANTES de hablar
-Abre dos terminales listas.
+
+**Paso 1 — Abre una terminal** (en VS Code: menú Terminal → New Terminal, o Ctrl+ñ)
+Escribe este comando y presiona Enter para ir a la carpeta del proyecto:
+```
+cd "C:\Users\jiliana rodriguez\Downloads\Rappi-stream"
+```
+Verifica que el sistema está corriendo:
+```
+docker compose ps
+```
+Deberías ver ~12 contenedores con estado `Up`. Si no están corriendo, escribe:
+```
+docker compose up -d
+```
+y espera ~1 minuto.
+
+**Paso 2 — Deja ESA terminal abierta** con la carpeta del proyecto.
+Vas a ejecutar los dos comandos desde ahí durante la presentación.
 
 ---
 
@@ -63,37 +80,97 @@ María hace click "Pedir ahora"
 
 ---
 
-### 🖥️ Muestra 1 — `docker compose ps`
+### 🖥️ Muestra 1 — Comando 1 en la terminal
 
-```bash
+> Di: *"Primero verifico que están todos los servicios corriendo."*
+
+**Escribe en la terminal exactamente esto y presiona Enter:**
+```
 docker compose ps
 ```
 
-**Señala en la salida:**
-- No hay `zookeeper` → *"Kafka en modo KRaft: sin ZooKeeper, el broker gestiona sus propios metadatos."*
-- `rappi_kafka_init` aparece `Exited (0)` → *"Init container que creó el topic y terminó exitosamente."*
+**Qué vas a ver** — una tabla con los contenedores. Señala con el cursor:
+
+```
+NAME                                    STATUS
+rappi_kafka                             Up (healthy)   ← señala esto
+rappi_rabbitmq                          Up (healthy)   ← señala esto
+rappi_postgres                          Up (healthy)   ← señala esto
+rappi_order_api                         Up (healthy)
+rappi_order_processor                   Up (healthy)
+rappi_driver_simulator                  Up
+rappi_notification_router               Up
+rappi_dashboard_aggregator              Up
+rappi_dashboard_backend                 Up (healthy)
+rappi-stream-sms_worker-1               Up             ← señala que son 2
+rappi-stream-sms_worker-2               Up             ← señala que son 2
+rappi-stream-push_notification_worker-1 Up             ← señala que son 2
+rappi-stream-push_notification_worker-2 Up             ← señala que son 2
+rappi_kafka_init                        Exited (0)     ← señala este
+```
+
+**Lo que dices señalando cada línea:**
+
+1. Señala `rappi_kafka`, `rappi_rabbitmq`, `rappi_postgres`:
+   > *"Los tres pilares de infraestructura — Kafka, RabbitMQ y PostgreSQL — todos saludables."*
+
+2. Señala que NO aparece ningún contenedor con nombre `zookeeper`:
+   > *"No hay ZooKeeper. Usamos Kafka en **modo KRaft**: el broker gestiona sus propios
+   > metadatos sin necesitar un coordinador externo. Versiones modernas de Kafka ya no lo necesitan."*
+
+3. Señala `rappi_kafka_init` con `Exited (0)`:
+   > *"Este fue el init container. Corrió una sola vez, creó el topic `order_events`
+   > con 3 particiones, y terminó exitosamente — exit code 0 significa éxito.
+   > Los microservicios esperaron a que terminara antes de arrancar."*
+
+4. Señala los 4 workers con sufijos `-1` y `-2`:
+   > *"Dos réplicas de cada worker de notificaciones — lo explicaré en detalle en el turno 4."*
 
 ---
 
-### 🖥️ Muestra 2 — Particiones de Kafka
+### 🖥️ Muestra 2 — Comando 2 en la terminal
 
-```bash
+> Di: *"Ahora inspecciono el topic de Kafka para mostrar las particiones."*
+
+**Escribe en la MISMA terminal exactamente esto y presiona Enter:**
+```
 docker exec rappi_kafka kafka-topics --bootstrap-server kafka:9092 --describe --topic order_events
 ```
 
-**Salida:**
+> **Qué significa este comando línea por línea:**
+> - `docker exec rappi_kafka` → ejecuta un comando DENTRO del contenedor llamado `rappi_kafka`
+> - `kafka-topics` → herramienta de Kafka para inspeccionar topics
+> - `--bootstrap-server kafka:9092` → dirección del broker Kafka (nombre DNS interno de Docker)
+> - `--describe` → mostrar detalles del topic
+> - `--topic order_events` → el topic que queremos inspeccionar
+
+**Qué vas a ver:**
 ```
 Topic: order_events   PartitionCount: 3   ReplicationFactor: 1
-  Partition: 0   Leader: 1
-  Partition: 1   Leader: 1
-  Partition: 2   Leader: 1
+  Topic: order_events  Partition: 0  Leader: 1  Replicas: 1  Isr: 1
+  Topic: order_events  Partition: 1  Leader: 1  Replicas: 1  Isr: 1
+  Topic: order_events  Partition: 2  Leader: 1  Replicas: 1  Isr: 1
 ```
 
-**Lo que dices:**
-> "3 particiones. La clave de partición es el `orderId` — el UUID del pedido de María.
-> Kafka calcula `hash(orderId) % 3` y todos sus eventos van siempre a la misma partición.
-> Eso garantiza el orden: CREADO llega antes que DRIVER_ASSIGNED, que llega antes que
-> DELIVERY_STARTED. Nunca puede llegar ENTREGADO antes de CREADO para el mismo pedido."
+**Lo que dices señalando la salida:**
+
+1. Señala `PartitionCount: 3`:
+   > *"Existen **3 particiones** en este topic."*
+
+2. Señala las 3 líneas de Partition 0, 1, 2:
+   > *"La clave de partición es el `orderId` — el UUID del pedido de María.
+   > Kafka calcula `hash(orderId) % 3` y todos sus eventos van siempre a la misma partición.
+   > Eso garantiza el orden cronológico estricto: CREADO llega antes que DRIVER_ASSIGNED,
+   > que llega antes que DELIVERY_STARTED. Nunca puede llegar ENTREGADO antes de CREADO
+   > para el mismo pedido."*
+
+3. Señala `ReplicationFactor: 1`:
+   > *"Replication factor 1 significa que no hay réplicas — solo hay un broker en desarrollo.
+   > En producción usaríamos 3 para alta disponibilidad."*
+
+4. Señala `Leader: 1`:
+   > *"El broker número 1 es el líder de todas las particiones — tiene sentido porque
+   > solo tenemos un broker."*
 
 ---
 
