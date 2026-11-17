@@ -1,4 +1,4 @@
-package com.rappistream.notificationrouter.strategy;
+package com.rappistream.notificationrouter.application;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.rappistream.common.commands.NotificationCommand;

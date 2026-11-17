@@ -1,4 +1,4 @@
-package com.rappistream.notificationrouter.strategy;
+package com.rappistream.notificationrouter.application;
 
 import com.rappistream.common.enums.OrderEventType;
 import com.rappistream.common.events.OrderEventEnvelope;
