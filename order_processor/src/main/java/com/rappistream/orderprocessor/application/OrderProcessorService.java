@@ -7,6 +7,7 @@ import com.rappistream.orderprocessor.domain.port.OrderRepositoryPort;
 import com.rappistream.orderprocessor.domain.strategy.DriverAssignmentStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 /**
@@ -46,6 +47,9 @@ public class OrderProcessorService {
     private static final Logger log = LoggerFactory.getLogger(OrderProcessorService.class);
 
     // Dependencias inyectadas como interfaces (DIP)
+    @Value("${processor.delay.assignment-ms:3000}")
+    private long assignmentDelayMs;
+
     private final OrderRepositoryPort    repositorio;
     private final OrderEventPublisherPort publicador;
     private final DriverAssignmentStrategy estrategiaAsignacion;
@@ -89,6 +93,14 @@ public class OrderProcessorService {
         // 3. Publicar ORDER_CREATED en Kafka
         publicador.publicarOrderCreated(pedido);
         log.debug("[order_processor] ORDER_CREATED publicado en Kafka — orderId={}", pedido.getId());
+
+        // 3.5 Delay simulado — el dashboard muestra la animación "Buscando repartidor"
+        try {
+            log.info("[order_processor] Buscando repartidor disponible ({}ms)...", assignmentDelayMs);
+            Thread.sleep(assignmentDelayMs);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
 
         // 4. Aplicar Strategy de asignación de repartidor
         //    La Strategy llama a pedido.asignarRepartidor(driverId, driverName)
