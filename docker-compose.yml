@@ -388,7 +388,7 @@ services:
         condition: service_healthy
       kafka-init:
         condition: service_completed_successfully
-      dashboard_backend:
+      dashboard-backend:
         condition: service_healthy
     deploy:
       resources:
