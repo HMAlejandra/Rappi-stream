@@ -118,10 +118,25 @@ rappi_kafka_init                        Exited (0)     ← señala este
    > *"No hay ZooKeeper. Usamos Kafka en **modo KRaft**: el broker gestiona sus propios
    > metadatos sin necesitar un coordinador externo. Versiones modernas de Kafka ya no lo necesitan."*
 
-3. Señala `rappi_kafka_init` con `Exited (0)`:
-   > *"Este fue el init container. Corrió una sola vez, creó el topic `order_events`
-   > con 3 particiones, y terminó exitosamente — exit code 0 significa éxito.
-   > Los microservicios esperaron a que terminara antes de arrancar."*
+3. Señala que `rappi_kafka_init` **NO aparece en la lista**:
+   > *"El init container `kafka_init` no aparece porque ya terminó y se eliminó de la
+   > vista activa — eso es exactamente lo que debe pasar. Tiene `restart: "no"` en el
+   > compose, lo que significa que corre una sola vez, crea el topic `order_events`,
+   > y ya no vuelve a aparecer. Si quiero verificar que corrió exitosamente, ejecuto
+   > `docker ps -a --filter name=rappi_kafka_init` y aparece con `Exited (0)` —
+   > exit code 0 significa éxito."*
+
+   Si el profesor pide ver la prueba, ejecuta en la misma terminal:
+   ```
+   docker ps -a --filter "name=rappi_kafka_init"
+   ```
+   Verás: `Exited (0)` → corrió y terminó bien.
+
+   También puedes probar que el topic existe:
+   ```
+   docker exec rappi_kafka kafka-topics --bootstrap-server kafka:9092 --list
+   ```
+   Verás: `order_events` en la lista → el init container lo creó correctamente.
 
 4. Señala los 4 workers con sufijos `-1` y `-2`:
    > *"Dos réplicas de cada worker de notificaciones — lo explicaré en detalle en el turno 4."*
