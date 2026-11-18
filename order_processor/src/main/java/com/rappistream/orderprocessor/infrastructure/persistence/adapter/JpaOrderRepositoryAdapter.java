@@ -3,7 +3,6 @@ package com.rappistream.orderprocessor.infrastructure.persistence.adapter;
 import com.rappistream.orderprocessor.domain.model.Driver;
 import com.rappistream.orderprocessor.domain.model.Pedido;
 import com.rappistream.orderprocessor.domain.port.OrderRepositoryPort;
-import com.rappistream.orderprocessor.infrastructure.persistence.entity.DriverEntity;
 import com.rappistream.orderprocessor.infrastructure.persistence.entity.PedidoEntity;
 import com.rappistream.orderprocessor.infrastructure.persistence.repository.SpringDataDriverRepository;
 import com.rappistream.orderprocessor.infrastructure.persistence.repository.SpringDataPedidoRepository;
@@ -13,17 +12,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 
-/**
- * Adaptador JPA que implementa OrderRepositoryPort.
- *
- * DIP en acción:
- * El dominio define OrderRepositoryPort (interfaz).
- * Esta clase (infraestructura) la implementa.
- * El dominio nunca importa esta clase.
- *
- * Convierte entre objetos de dominio (Pedido, Driver)
- * y entidades JPA (PedidoEntity, DriverEntity).
- */
+/** Adaptador JPA para OrderRepositoryPort. Convierte Pedido ↔ PedidoEntity. */
 @Component
 public class JpaOrderRepositoryAdapter implements OrderRepositoryPort {
 
@@ -38,8 +27,7 @@ public class JpaOrderRepositoryAdapter implements OrderRepositoryPort {
 
     @Override
     public void guardar(Pedido pedido) {
-        PedidoEntity entity = toEntity(pedido);
-        pedidoRepo.save(entity);
+        pedidoRepo.save(toEntity(pedido));
     }
 
     @Override
@@ -65,33 +53,14 @@ public class JpaOrderRepositoryAdapter implements OrderRepositoryPort {
                 .toList();
     }
 
-    // ------------------------------------------------
-    // Conversiones dominio ↔ entidad JPA
-    // ------------------------------------------------
-
-    private PedidoEntity toEntity(Pedido pedido) {
-        return new PedidoEntity(
-                pedido.getId(),
-                pedido.getCustomerName(),
-                pedido.getProduct(),
-                pedido.getQuantity(),
-                pedido.getAddress(),
-                pedido.getDriverId(),
-                pedido.getNombreEstado(),
-                pedido.getCreadoEn(),
-                pedido.getActualizadoEn()
-        );
+    private PedidoEntity toEntity(Pedido p) {
+        return new PedidoEntity(p.getId(), p.getCustomerName(), p.getProduct(),
+                p.getQuantity(), p.getAddress(), p.getDriverId(),
+                p.getNombreEstado(), p.getCreadoEn(), p.getActualizadoEn());
     }
 
-    private Pedido toDomain(PedidoEntity entity) {
-        // Reconstruye el pedido desde BD (solo para consultas — no usado en el flujo principal)
-        Pedido pedido = new Pedido(
-                entity.getId(),
-                entity.getCustomerName(),
-                entity.getProduct(),
-                entity.getQuantity(),
-                entity.getAddress()
-        );
-        return pedido;
+    private Pedido toDomain(PedidoEntity e) {
+        return new Pedido(e.getId(), e.getCustomerName(), e.getProduct(),
+                e.getQuantity(), e.getAddress());
     }
 }

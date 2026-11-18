@@ -1,4 +1,4 @@
-package com.rappistream.orderprocessor.infrastructure.messaging;
+package com.rappistream.orderprocessor.infrastructure.listener;
 
 import com.rappistream.common.commands.OrderCreatedCommand;
 import com.rappistream.orderprocessor.application.OrderProcessorService;

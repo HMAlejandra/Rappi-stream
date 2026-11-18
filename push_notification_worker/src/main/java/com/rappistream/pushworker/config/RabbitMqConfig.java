@@ -3,7 +3,6 @@ package com.rappistream.pushworker.config;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
-import org.springframework.amqp.core.*;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.support.converter.Jackson2JsonMessageConverter;
@@ -13,31 +12,22 @@ import org.springframework.context.annotation.Configuration;
 /**
  * Configuración RabbitMQ para push_notification_worker (consumidor).
  *
- * Declara la cola y el binding idempotentemente.
- * Jackson deserializa automáticamente a NotificationCommand.
+ * <p>La topología del exchange y la cola (notifications exchange,
+ * driver_push_queue, binding notify.driver.*) es declarada de forma
+ * autoritativa por notification_router/config/RabbitMqConfig.java.
+ * Los workers sólo necesitan configurar Jackson para deserializar
+ * NotificationCommand y el listener container factory.</p>
+ *
+ * <p>RabbitMQ es idempotente en las declaraciones, pero declararlas
+ * en múltiples servicios crea acoplamiento estructural innecesario:
+ * un cambio en el exchange name o routing key requeriría modificar
+ * N servicios en lugar de uno solo.</p>
  */
 @Configuration
 public class RabbitMqConfig {
 
-    public static final String DRIVER_PUSH_QUEUE      = "driver_push_queue";
-    public static final String NOTIFICATIONS_EXCHANGE = "notifications";
-
-    @Bean
-    public TopicExchange notificationsExchange() {
-        return new TopicExchange(NOTIFICATIONS_EXCHANGE, true, false);
-    }
-
-    @Bean
-    public Queue driverPushQueue() {
-        return new Queue(DRIVER_PUSH_QUEUE, true);
-    }
-
-    @Bean
-    public Binding pushBinding(Queue driverPushQueue, TopicExchange notificationsExchange) {
-        return BindingBuilder.bind(driverPushQueue)
-                .to(notificationsExchange)
-                .with("notify.driver.*");
-    }
+    /** Nombre de la cola a la que este worker escucha. */
+    public static final String DRIVER_PUSH_QUEUE = "driver_push_queue";
 
     @Bean
     public ObjectMapper objectMapper() {

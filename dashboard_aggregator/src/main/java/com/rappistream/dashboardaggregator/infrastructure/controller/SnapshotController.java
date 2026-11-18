@@ -1,4 +1,4 @@
-package com.rappistream.dashboardaggregator.infrastructure.web;
+package com.rappistream.dashboardaggregator.infrastructure.controller;
 
 import com.rappistream.common.dto.OrderStatusDTO;
 import com.rappistream.common.enums.OrderStatus;
