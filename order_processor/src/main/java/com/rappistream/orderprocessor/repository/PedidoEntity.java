@@ -1,0 +1,73 @@
+package com.rappistream.orderprocessor.repository;
+
+import jakarta.persistence.*;
+import java.time.Instant;
+
+/**
+ * Entidad JPA que mapea la tabla 'orders' de PostgreSQL.
+ *
+ * DIP: esta clase es de infraestructura pura. El dominio (Pedido.java)
+ * no conoce su existencia. JpaOrderRepositoryAdapter convierte entre ambas.
+ */
+@Entity
+@Table(name = "orders")
+public class PedidoEntity {
+
+    @Id
+    @Column(name = "id", length = 36, nullable = false)
+    private String id;
+
+    @Column(name = "customer_name", length = 150, nullable = false)
+    private String customerName;
+
+    @Column(name = "product", length = 200, nullable = false)
+    private String product;
+
+    @Column(name = "quantity", nullable = false)
+    private int quantity;
+
+    @Column(name = "address", nullable = false)
+    private String address;
+
+    @Column(name = "driver_id", length = 36)
+    private String driverId;
+
+    @Column(name = "status", length = 30, nullable = false)
+    private String status;
+
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt;
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt;
+
+    protected PedidoEntity() {}
+
+    public PedidoEntity(String id, String customerName, String product,
+                        int quantity, String address, String driverId,
+                        String status, Instant createdAt, Instant updatedAt) {
+        this.id           = id;
+        this.customerName = customerName;
+        this.product      = product;
+        this.quantity     = quantity;
+        this.address      = address;
+        this.driverId     = driverId;
+        this.status       = status;
+        this.createdAt    = createdAt;
+        this.updatedAt    = updatedAt;
+    }
+
+    public String  getId()           { return id; }
+    public String  getCustomerName() { return customerName; }
+    public String  getProduct()      { return product; }
+    public int     getQuantity()     { return quantity; }
+    public String  getAddress()      { return address; }
+    public String  getDriverId()     { return driverId; }
+    public String  getStatus()       { return status; }
+    public Instant getCreatedAt()    { return createdAt; }
+    public Instant getUpdatedAt()    { return updatedAt; }
+
+    public void setStatus(String status)        { this.status = status; }
+    public void setDriverId(String driverId)    { this.driverId = driverId; }
+    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+}
