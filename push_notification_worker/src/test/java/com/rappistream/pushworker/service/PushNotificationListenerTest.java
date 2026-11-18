@@ -8,10 +8,13 @@ import org.junit.jupiter.api.Test;
 import java.time.Instant;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.mockito.Mockito.mock;
 
 class PushNotificationListenerTest {
 
-    private final PushNotificationListener listener = new PushNotificationListener();
+    private final PushNotificationListener listener =
+            new PushNotificationListener(
+                    new WorkerActivityRecorder(mock(WorkerTelemetryPort.class), new ReplicaIdentity()));
 
     @Test @DisplayName("Procesa el comando sin lanzar excepciones")
     void procesaComandoSinExcepcion() {

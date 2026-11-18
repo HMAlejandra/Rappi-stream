@@ -1,0 +1,26 @@
+/* Modo Ráfaga + Semáforo de Réplicas — Rappi-Stream */
+.burst-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:18px;box-shadow:var(--shadow)}
+.burst-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;flex-wrap:wrap;gap:10px}
+.burst-hdr>span{font-size:16px;font-weight:900;background:var(--grad);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+.burst-btns{display:flex;gap:8px;flex-wrap:wrap}
+.rb{padding:8px 16px;background:var(--card2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-size:13px;font-weight:800;cursor:pointer;transition:all .2s}
+.rb:hover{background:rgba(255,107,0,.15);border-color:var(--orange);color:var(--orange)}
+.rb.reset{background:rgba(255,59,48,.1);border-color:rgba(255,59,48,.3);color:#ff6258}
+.rb.reset:hover{background:rgba(255,59,48,.2)}
+.burst-metrics{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:12px;margin-bottom:14px}
+.bm{background:var(--card2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px;text-align:center}
+.bm-v{font-size:24px;font-weight:900;line-height:1}
+.bm-l{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px;margin-top:4px}
+.burst-prog{height:8px;background:var(--border);border-radius:4px;overflow:hidden}
+.burst-prog-fill{height:100%;width:0;background:var(--grad);border-radius:4px;transition:width .5s cubic-bezier(.4,0,.2,1)}
+.replica-panel{background:var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;margin-bottom:18px;box-shadow:var(--shadow)}
+.replica-hdr{font-size:15px;font-weight:800;margin-bottom:14px}
+.replica-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(160px,1fr));gap:12px}
+.replica-card{background:var(--card2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:14px;display:flex;flex-direction:column;align-items:center;gap:6px}
+.light{width:22px;height:22px;border-radius:50%;background:#555;box-shadow:0 0 10px rgba(0,0,0,.4);transition:background .3s,box-shadow .3s;margin-bottom:4px}
+.replica-card:hover .light{box-shadow:0 0 16px rgba(255,107,0,.5)}
+.rc-id{font-size:11px;font-family:monospace;font-weight:800;color:var(--orange);max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.rc-type{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:1px}
+.rc-count{font-size:12px;font-weight:700;color:var(--green)}
+.rc-empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:20px;font-size:12px}
+@media(max-width:600px){.burst-metrics{grid-template-columns:repeat(2,1fr)}.replica-grid{grid-template-columns:1fr 1fr}}

@@ -38,6 +38,12 @@
             <artifactId>spring-boot-starter-websocket</artifactId>
         </dependency>
 
+        <!-- Consumir telemetría de réplicas desde RabbitMQ (semáforo en vivo) -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-amqp</artifactId>
+        </dependency>
+
         <!-- Serialización JSON -->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>

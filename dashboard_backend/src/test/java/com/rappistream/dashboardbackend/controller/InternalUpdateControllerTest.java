@@ -2,6 +2,7 @@ package com.rappistream.dashboardbackend.controller;
 
 import com.rappistream.common.dto.OrderStatusDTO;
 import com.rappistream.common.enums.OrderStatus;
+import com.rappistream.dashboardbackend.service.BurstMetricsService;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,6 +21,7 @@ import static org.mockito.Mockito.*;
 class InternalUpdateControllerTest {
 
     @Mock private SimpMessagingTemplate messagingTemplate;
+    @Mock private BurstMetricsService burstMetricsService;
     @InjectMocks private InternalUpdateController controller;
 
     private OrderStatusDTO dtoValido() {

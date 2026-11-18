@@ -1,5 +1,11 @@
 # Rappi-Stream — docker-compose.yml
-# Uso: docker compose up -d | docker compose ps | docker stats
+# Uso: docker compose up -d | docker compose ps | docker compose logs <svc>
+#
+# ── Topología de red ──────────────────────────────────────────────────
+#   rappi_public_net   → servicios de entrada expuestos al host (order_api, dashboard-backend)
+#   rappi_internal_net  → infraestructura + servicios internos que consumen Kafka/RabbitMQ/Postgres
+#   Un servicio puede pertenecer a ambas redes cuando expone puerto al host y a la vez
+#   necesita reachar la infraestructura interna (p.ej. order_api → rabbitmq).
 
 services:
 
@@ -29,7 +35,7 @@ services:
           cpus: '0.50'
           memory: 512M
     networks:
-      - rappi_net
+      - rappi_internal_net
 
   # ── RabbitMQ — panel: http://localhost:15672 ──────────────────────────
   rabbitmq:
@@ -56,7 +62,7 @@ services:
           cpus: '0.50'
           memory: 384M
     networks:
-      - rappi_net
+      - rappi_internal_net
 
   # ── Kafka 7.6 — modo KRaft (sin ZooKeeper) ───────────────────────────
   # KAFKA_CLUSTER_ID: UUID base64 de 22 chars — fijo en .env para arranques deterministas.
@@ -96,7 +102,7 @@ services:
           cpus: '0.75'
           memory: 512M
     networks:
-      - rappi_net
+      - rappi_internal_net
 
   # ── Init container — crea topic order_events (3 particiones) ─────────
   kafka-init:
@@ -110,9 +116,11 @@ services:
     entrypoint: ["/bin/bash", "/create-topics.sh"]
     restart: "no"
     networks:
-      - rappi_net
+      - rappi_internal_net
 
-  # ── order_api — puerto 8080 ───────────────────────────────────────────
+  # ── order_api — puerto 8080 (entrada pública) ────────────────────────
+  # Expuesto al host (rappi_public_net) y conectado a la red interna para
+  # reachar RabbitMQ (publica comandos en la cola de órdenes).
   order_api:
     build:
       context: .
@@ -141,11 +149,12 @@ services:
           cpus: '0.50'
           memory: 384M
     networks:
-      rappi_net:
+      rappi_public_net:
+      rappi_internal_net:
         aliases:
           - orderapi
 
-  # ── order_processor — puerto 8081 ────────────────────────────────────
+  # ── order_processor — puerto 8081 (interno) ──────────────────────────
   order_processor:
     build:
       context: .
@@ -184,9 +193,9 @@ services:
           cpus: '0.50'
           memory: 384M
     networks:
-      - rappi_net
+      - rappi_internal_net
 
-  # ── driver_simulator — puerto 8082 ───────────────────────────────────
+  # ── driver_simulator — puerto 8082 (interno) ─────────────────────────
   # Delays configurables sin recompilar via SIMULATOR_DELAY_* env vars.
   driver_simulator:
     build:
@@ -213,9 +222,9 @@ services:
           cpus: '0.25'
           memory: 256M
     networks:
-      - rappi_net
+      - rappi_internal_net
 
-  # ── notification_router — puerto 8083 ────────────────────────────────
+  # ── notification_router — puerto 8083 (interno) ──────────────────────
   notification_router:
     build:
       context: .
@@ -243,7 +252,7 @@ services:
           cpus: '0.25'
           memory: 256M
     networks:
-      - rappi_net
+      - rappi_internal_net
 
   # ── sms_worker — réplicas: 2 (Work Queue + balanceo de carga) ────────
   # Con replicas > 1 no puede haber container_name fijo ni port mapping fijo.
@@ -267,7 +276,7 @@ services:
           cpus: '0.25'
           memory: 256M
     networks:
-      - rappi_net
+      - rappi_internal_net
 
   # ── push_notification_worker — réplicas: 2 ───────────────────────────
   push_notification_worker:
@@ -290,9 +299,9 @@ services:
           cpus: '0.25'
           memory: 256M
     networks:
-      - rappi_net
+      - rappi_internal_net
 
-  # ── dashboard_aggregator — puerto 8086 ───────────────────────────────
+  # ── dashboard_aggregator — puerto 8086 (interno) ──────────────────────
   dashboard_aggregator:
     build:
       context: .
@@ -323,12 +332,14 @@ services:
           cpus: '0.50'
           memory: 384M
     networks:
-      rappi_net:
+      rappi_internal_net:
         aliases:
           - dashboardaggregator
 
-  # ── dashboard-backend — puerto 8087 ──────────────────────────────────
+  # ── dashboard-backend — puerto 8087 (entrada pública) ────────────────
   # Nombre con guión (no guión bajo): Tomcat 10 rechaza '_' en headers Host.
+  # Expuesto al host (rappi_public_net) y conectado a la red interna para
+  # reachar Postgres, order_api (alias orderapi) y dashboard_aggregator (alias dashboardaggregator).
   dashboard-backend:
     build:
       context: .
@@ -340,6 +351,9 @@ services:
     environment:
       ORDER_API_URL:  http://orderapi:8080
       AGGREGATOR_URL: http://dashboardaggregator:8086
+      SPRING_RABBITMQ_HOST:     rabbitmq
+      SPRING_RABBITMQ_USERNAME: ${RABBITMQ_DEFAULT_USER}
+      SPRING_RABBITMQ_PASSWORD: ${RABBITMQ_DEFAULT_PASS}
       JAVA_OPTS: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0 -XX:+ExitOnOutOfMemoryError"
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:8087/health || exit 1"]
@@ -350,13 +364,16 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
     deploy:
       resources:
         limits:
           cpus: '0.50'
           memory: 384M
     networks:
-      rappi_net:
+      rappi_public_net:
+      rappi_internal_net:
         aliases:
           - dashboardbackend
 
@@ -369,8 +386,12 @@ volumes:
   kafka_data:
     driver: local
 
-# ── Red interna bridge ────────────────────────────────────────────────
-# Servicios se comunican por nombre: kafka:9092, postgres:5432, rabbitmq:5672
+# ── Redes segmentadas (driver: bridge) ─────────────────────────────────
+#   rappi_public_net   → perímetro de entrada: order_api (8080), dashboard-backend (8087)
+#   rappi_internal_net → red de confianza: infraestructura + workers + agregador
+#   Los servicios de entrada viven en AMBAS redes para reachar la infraestructura.
 networks:
-  rappi_net:
+  rappi_public_net:
+    driver: bridge
+  rappi_internal_net:
     driver: bridge

@@ -354,6 +354,7 @@ tr.flash{animation:rowFlash 1.5s ease}
   .metrics-row{grid-template-columns:repeat(2,1fr)}
 }
 </style>
+<link rel="stylesheet" href="/css/burst.css">
 </head>
 <body>
 
@@ -451,6 +452,9 @@ tr.flash{animation:rowFlash 1.5s ease}
 
     <!-- ═══ DASHBOARD ═══ -->
     <div class="tab-panel active" id="tab-dash">
+      <!-- Modo Ráfaga + Semáforo de Réplicas -->
+      <div id="burstPanelMount"></div>
+      <div id="replicaPanelMount"></div>
       <div class="metrics-row">
         <div class="metric-card"><span class="m-icon">📦</span><div class="m-val" id="mTotal">0</div><div class="m-label">Total</div></div>
         <div class="metric-card"><span class="m-icon">🆕</span><div class="m-val" id="mCreado">0</div><div class="m-label">Recibidos</div></div>
@@ -790,6 +794,7 @@ function onConectado() {
   // Hidratar estado inicial: cargar todos los pedidos existentes
   // desde el aggregator para no llegar a cero al (re)conectar.
   cargarEstadoInicial();
+  if (window.burstOnConnect) burstOnConnect(stompCli);
 }
 
 function cargarEstadoInicial() {
@@ -1411,5 +1416,6 @@ document.getElementById('modalOverlay').addEventListener('click', e => {
   if(e.target===e.currentTarget) cerrarModal();
 });
 </script>
+<script src="/js/burst.js"></script>
 </body>
 </html>

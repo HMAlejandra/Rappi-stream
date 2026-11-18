@@ -3,6 +3,7 @@ package com.rappistream.orderapi.service;
 import com.rappistream.common.commands.OrderCreatedCommand;
 import com.rappistream.orderapi.config.RabbitMqConfig;
 import com.rappistream.orderapi.dto.request.CreateOrderRequest;
+import com.rappistream.orderapi.service.burst.BurstOrderPublisherPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -19,11 +20,14 @@ import java.util.UUID;
  * No valida el request (@Valid en el controller lo hace).
  * No conoce detalles HTTP.
  *
+ * DIP: implementa BurstOrderPublisherPort para que la orquestación de la
+ * ráfaga dependa de la abstracción, no de esta clase concreta.
+ *
  * Flujo:
  *   CreateOrderRequest → OrderCreatedCommand → new_orders_queue (RabbitMQ)
  */
 @Service
-public class OrderPublisherService {
+public class OrderPublisherService implements BurstOrderPublisherPort {
 
     private static final Logger log = LoggerFactory.getLogger(OrderPublisherService.class);
 

@@ -31,6 +31,16 @@ public class GlobalExceptionHandler {
                         ex.getMessage(), request.getRequestURI()));
     }
 
+    @ExceptionHandler(BurstEnCursoException.class)
+    public ResponseEntity<ErrorResponse> manejarBurstEnCurso(
+            BurstEnCursoException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.CONFLICT)
+                .body(ErrorResponse.deError(
+                        HttpStatus.CONFLICT.value(),
+                        HttpStatus.CONFLICT.getReasonPhrase(),
+                        ex.getMessage(), request.getRequestURI()));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ErrorResponse> manejarValidacion(
             MethodArgumentNotValidException ex, HttpServletRequest request) {
