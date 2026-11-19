@@ -153,7 +153,7 @@ services:
   order_api:
     build:
       context: .
-      dockerfile: order_api/Dockerfile
+      dockerfile: infrastructure/docker/order_api.Dockerfile
     container_name: rappi_order_api
     restart: unless-stopped
     ports:
@@ -191,7 +191,7 @@ services:
   order_processor:
     build:
       context: .
-      dockerfile: order_processor/Dockerfile
+      dockerfile: infrastructure/docker/order_processor.Dockerfile
     container_name: rappi_order_processor
     restart: unless-stopped
     ports:
@@ -236,7 +236,7 @@ services:
   driver_simulator:
     build:
       context: .
-      dockerfile: driver_simulator/Dockerfile
+      dockerfile: infrastructure/docker/driver_simulator.Dockerfile
     container_name: rappi_driver_simulator
     restart: unless-stopped
     ports:
@@ -269,7 +269,7 @@ services:
   notification_router:
     build:
       context: .
-      dockerfile: notification_router/Dockerfile
+      dockerfile: infrastructure/docker/notification_router.Dockerfile
     container_name: rappi_notification_router
     restart: unless-stopped
     ports:
@@ -313,7 +313,7 @@ services:
   sms_worker:
     build:
       context: .
-      dockerfile: sms_worker/Dockerfile
+      dockerfile: infrastructure/docker/sms_worker.Dockerfile
     restart: unless-stopped
     environment:
       SPRING_RABBITMQ_HOST: rabbitmq
@@ -342,7 +342,7 @@ services:
   push_notification_worker:
     build:
       context: .
-      dockerfile: push_notification_worker/Dockerfile
+      dockerfile: infrastructure/docker/push_notification_worker.Dockerfile
     restart: unless-stopped
     environment:
       SPRING_RABBITMQ_HOST: rabbitmq
@@ -369,7 +369,7 @@ services:
   dashboard_aggregator:
     build:
       context: .
-      dockerfile: dashboard_aggregator/Dockerfile
+      dockerfile: infrastructure/docker/dashboard_aggregator.Dockerfile
     container_name: rappi_dashboard_aggregator
     restart: unless-stopped
     ports:
@@ -410,7 +410,7 @@ services:
   dashboard-backend:
     build:
       context: .
-      dockerfile: dashboard_backend/Dockerfile
+      dockerfile: infrastructure/docker/dashboard_backend.Dockerfile
     container_name: rappi_dashboard_backend
     restart: unless-stopped
     ports:

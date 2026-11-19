@@ -1,21 +1,21 @@
-package com.rappistream.orderprocessor.domain.state;
+package com.rappistream.orderprocessor.domain.model.state;
 
 import com.rappistream.orderprocessor.domain.model.Pedido;
 
 /**
- * Estado CREADO — estado inicial del pedido.
+ * Estado CREADO â€” estado inicial del pedido.
  *
  * Transiciones permitidas:
- *   CREADO ──► ASIGNADO (via asignarRepartidor)
+ *   CREADO â”€â”€â–º ASIGNADO (via asignarRepartidor)
  *
- * Todas las demás operaciones son inválidas y lanzan
+ * Todas las demÃ¡s operaciones son invÃ¡lidas y lanzan
  * IllegalStateException inmediatamente (Fail-Fast).
  */
 public class EstadoCreado implements OrderState {
 
     @Override
     public void asignarRepartidor(Pedido pedido, String driverId, String driverName) {
-        // Transición válida: CREADO → ASIGNADO
+        // TransiciÃ³n vÃ¡lida: CREADO â†’ ASIGNADO
         pedido.aplicarAsignacion(driverId, driverName);
         pedido.setEstado(new EstadoAsignado());
     }
@@ -23,20 +23,20 @@ public class EstadoCreado implements OrderState {
     @Override
     public void iniciarEntrega(Pedido pedido) {
         throw new IllegalStateException(
-                "No se puede iniciar la entrega: el pedido está en estado CREADO. " +
+                "No se puede iniciar la entrega: el pedido estÃ¡ en estado CREADO. " +
                 "Debe asignarse un repartidor primero.");
     }
 
     @Override
     public void registrarLlegada(Pedido pedido) {
         throw new IllegalStateException(
-                "No se puede registrar llegada: el pedido está en estado CREADO.");
+                "No se puede registrar llegada: el pedido estÃ¡ en estado CREADO.");
     }
 
     @Override
     public void completarEntrega(Pedido pedido) {
         throw new IllegalStateException(
-                "No se puede completar la entrega: el pedido está en estado CREADO.");
+                "No se puede completar la entrega: el pedido estÃ¡ en estado CREADO.");
     }
 
     @Override
@@ -44,3 +44,4 @@ public class EstadoCreado implements OrderState {
         return "CREADO";
     }
 }
+

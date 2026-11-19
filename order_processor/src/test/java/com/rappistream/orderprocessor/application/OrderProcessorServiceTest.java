@@ -4,7 +4,7 @@ import com.rappistream.common.commands.OrderCreatedCommand;
 import com.rappistream.orderprocessor.domain.model.Pedido;
 import com.rappistream.orderprocessor.domain.port.OrderEventPublisherPort;
 import com.rappistream.orderprocessor.domain.port.OrderRepositoryPort;
-import com.rappistream.orderprocessor.domain.strategy.DriverAssignmentStrategy;
+import com.rappistream.orderprocessor.service.strategy.DriverAssignmentStrategy;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -21,7 +21,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 /**
- * Pruebas unitarias del servicio de orquestación — OrderProcessorService.
+ * Pruebas unitarias del servicio de orquestaciÃ³n â€” OrderProcessorService.
  *
  * Estrategia:
  * Se mockean los tres puertos (repositorio, publicador, estrategia).
@@ -29,13 +29,13 @@ import static org.mockito.Mockito.*;
  * Se verifica que el servicio orqueste correctamente llamando
  * a cada puerto en el orden correcto.
  *
- * POO — Mockito:
+ * POO â€” Mockito:
  * @Mock crea dobles de prueba de las interfaces de puerto.
  * @InjectMocks inyecta los mocks en el constructor de OrderProcessorService.
- * verify() confirma que el servicio llamó a los puertos correctamente.
+ * verify() confirma que el servicio llamÃ³ a los puertos correctamente.
  */
 @ExtendWith(MockitoExtension.class)
-@DisplayName("OrderProcessorService — Orquestación con Mockito")
+@DisplayName("OrderProcessorService â€” OrquestaciÃ³n con Mockito")
 class OrderProcessorServiceTest {
 
     @Mock
@@ -54,7 +54,7 @@ class OrderProcessorServiceTest {
         return new OrderCreatedCommand(
                 UUID.randomUUID().toString(),
                 UUID.randomUUID().toString(),
-                "María García",
+                "MarÃ­a GarcÃ­a",
                 "Hamburguesa doble",
                 2,
                 "Calle 100 #15-30",
@@ -89,7 +89,7 @@ class OrderProcessorServiceTest {
     }
 
     @Test
-    @DisplayName("Debe aplicar la estrategia de asignación")
+    @DisplayName("Debe aplicar la estrategia de asignaciÃ³n")
     void debeAplicarEstrategiaDeAsignacion() {
         // Arrange
         OrderCreatedCommand comando = comandoValido();
@@ -115,7 +115,7 @@ class OrderProcessorServiceTest {
     }
 
     @Test
-    @DisplayName("Debe actualizar el pedido en la BD después de asignar repartidor")
+    @DisplayName("Debe actualizar el pedido en la BD despuÃ©s de asignar repartidor")
     void debeActualizarDespuesDeAsignar() {
         // Arrange
         OrderCreatedCommand comando = comandoValido();
@@ -123,7 +123,7 @@ class OrderProcessorServiceTest {
         // Act
         service.procesarComando(comando);
 
-        // Assert: actualizar fue llamado después de guardar
+        // Assert: actualizar fue llamado despuÃ©s de guardar
         verify(repositorio, times(1)).actualizar(any(Pedido.class));
     }
 
@@ -155,7 +155,7 @@ class OrderProcessorServiceTest {
         // Act
         service.procesarComando(comando);
 
-        // Assert: orden: guardar → publicarCreated → asignar → actualizar → publicarAssigned
+        // Assert: orden: guardar â†’ publicarCreated â†’ asignar â†’ actualizar â†’ publicarAssigned
         var ordenVerificacion = inOrder(repositorio, publicador, estrategiaAsignacion);
         ordenVerificacion.verify(repositorio).guardar(any());
         ordenVerificacion.verify(publicador).publicarOrderCreated(any());
@@ -165,7 +165,7 @@ class OrderProcessorServiceTest {
     }
 
     @Test
-    @DisplayName("Si la estrategia lanza excepción, no debe publicar DRIVER_ASSIGNED")
+    @DisplayName("Si la estrategia lanza excepciÃ³n, no debe publicar DRIVER_ASSIGNED")
     void siEstrategiaFallaNODebePublicarDriverAssigned() {
         // Arrange
         OrderCreatedCommand comando = comandoValido();
@@ -175,7 +175,8 @@ class OrderProcessorServiceTest {
         // Act & Assert
         assertThrows(IllegalStateException.class, () -> service.procesarComando(comando));
 
-        // No se publicó DRIVER_ASSIGNED porque la asignación falló
+        // No se publicÃ³ DRIVER_ASSIGNED porque la asignaciÃ³n fallÃ³
         verify(publicador, never()).publicarDriverAssigned(any());
     }
 }
+
