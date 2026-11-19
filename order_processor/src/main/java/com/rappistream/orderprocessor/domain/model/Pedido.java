@@ -1,16 +1,16 @@
 package com.rappistream.orderprocessor.domain.model;
 
-import com.rappistream.orderprocessor.domain.state.EstadoCreado;
-import com.rappistream.orderprocessor.domain.state.OrderState;
+import com.rappistream.orderprocessor.domain.model.state.EstadoCreado;
+import com.rappistream.orderprocessor.domain.model.state.OrderState;
 
 import java.time.Instant;
 import java.util.Objects;
 
 /**
- * Entidad rica del dominio — Pedido.
- * Encapsula estado y comportamiento. Patrón State para transiciones.
- * No tiene setters indiscriminados — el estado cambia solo por métodos semánticos.
- * No importa JPA ni Spring — es un POJO puro.
+ * Entidad rica del dominio â€” Pedido.
+ * Encapsula estado y comportamiento. PatrÃ³n State para transiciones.
+ * No tiene setters indiscriminados â€” el estado cambia solo por mÃ©todos semÃ¡nticos.
+ * No importa JPA ni Spring â€” es un POJO puro.
  */
 public class Pedido {
 
@@ -32,11 +32,11 @@ public class Pedido {
         Objects.requireNonNull(customerName, "customerName no puede ser nulo");
         Objects.requireNonNull(product,      "product no puede ser nulo");
         Objects.requireNonNull(address,      "address no puede ser nulo");
-        if (id.isBlank())          throw new IllegalArgumentException("id no puede estar vacío");
-        if (customerName.isBlank()) throw new IllegalArgumentException("customerName no puede estar vacío");
-        if (product.isBlank())     throw new IllegalArgumentException("product no puede estar vacío");
+        if (id.isBlank())          throw new IllegalArgumentException("id no puede estar vacÃ­o");
+        if (customerName.isBlank()) throw new IllegalArgumentException("customerName no puede estar vacÃ­o");
+        if (product.isBlank())     throw new IllegalArgumentException("product no puede estar vacÃ­o");
         if (quantity <= 0)         throw new IllegalArgumentException("quantity debe ser mayor que cero, recibido: " + quantity);
-        if (address.isBlank())     throw new IllegalArgumentException("address no puede estar vacía");
+        if (address.isBlank())     throw new IllegalArgumentException("address no puede estar vacÃ­a");
 
         this.id            = id;
         this.customerName  = customerName;
@@ -48,7 +48,7 @@ public class Pedido {
         this.estadoActual  = new EstadoCreado();
     }
 
-    // ── Métodos de negocio (Patrón State) ──────────────────────────────
+    // â”€â”€ MÃ©todos de negocio (PatrÃ³n State) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     public void asignarRepartidor(String driverId, String driverName) {
         estadoActual.asignarRepartidor(this, driverId, driverName);
@@ -69,12 +69,12 @@ public class Pedido {
         this.actualizadoEn = Instant.now();
     }
 
-    /** Usado por los estados concretos para aplicar la asignación. */
+    /** Usado por los estados concretos para aplicar la asignaciÃ³n. */
     public void aplicarAsignacion(String driverId, String driverName) {
-        Objects.requireNonNull(driverId,   "driverId no puede ser nulo en la asignación");
-        Objects.requireNonNull(driverName, "driverName no puede ser nulo en la asignación");
-        if (driverId.isBlank())   throw new IllegalArgumentException("driverId no puede estar vacío");
-        if (driverName.isBlank()) throw new IllegalArgumentException("driverName no puede estar vacío");
+        Objects.requireNonNull(driverId,   "driverId no puede ser nulo en la asignaciÃ³n");
+        Objects.requireNonNull(driverName, "driverName no puede ser nulo en la asignaciÃ³n");
+        if (driverId.isBlank())   throw new IllegalArgumentException("driverId no puede estar vacÃ­o");
+        if (driverName.isBlank()) throw new IllegalArgumentException("driverName no puede estar vacÃ­o");
         this.driverId      = driverId;
         this.driverName    = driverName;
         this.actualizadoEn = Instant.now();
@@ -84,7 +84,7 @@ public class Pedido {
         this.estadoActual = nuevoEstado;
     }
 
-    // ── Getters ────────────────────────────────────────────────────────
+    // â”€â”€ Getters â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
     public String  getId()             { return id; }
     public String  getCustomerName()   { return customerName; }
@@ -103,3 +103,4 @@ public class Pedido {
                "', estado='" + getNombreEstado() + "', driver='" + driverId + "'}";
     }
 }
+

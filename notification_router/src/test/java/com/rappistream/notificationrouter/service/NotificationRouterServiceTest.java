@@ -8,9 +8,9 @@ import com.rappistream.common.events.OrderEventEnvelope;
 import com.rappistream.common.events.payloads.DriverArrivingPayload;
 import com.rappistream.common.events.payloads.OrderDeliveredPayload;
 import com.rappistream.notificationrouter.config.RabbitMqConfig;
-import com.rappistream.notificationrouter.application.DriverArrivingSmsStrategy;
-import com.rappistream.notificationrouter.application.NotificationStrategy;
-import com.rappistream.notificationrouter.application.OrderDeliveredPushStrategy;
+import com.rappistream.notificationrouter.service.strategy.DriverArrivingSmsStrategy;
+import com.rappistream.notificationrouter.service.NotificationStrategy;
+import com.rappistream.notificationrouter.service.strategy.OrderDeliveredPushStrategy;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -30,7 +30,7 @@ import static org.mockito.Mockito.*;
 
 /**
  * Tests unitarios para NotificationRouterService.
- * Verifica el Patrón Strategy: cada evento dispara la notificación correcta.
+ * Verifica el PatrÃ³n Strategy: cada evento dispara la notificaciÃ³n correcta.
  */
 @ExtendWith(MockitoExtension.class)
 class NotificationRouterServiceTest {
@@ -56,7 +56,7 @@ class NotificationRouterServiceTest {
     }
 
     @Test
-    @DisplayName("DRIVER_ARRIVING → publica en exchange con routing key SMS")
+    @DisplayName("DRIVER_ARRIVING â†’ publica en exchange con routing key SMS")
     void driverArriving_publicaEnSmsQueue() throws Exception {
         // Arrange
         DriverArrivingPayload payload = new DriverArrivingPayload("D-001", "Carlos", "2 minutos");
@@ -77,7 +77,7 @@ class NotificationRouterServiceTest {
     }
 
     @Test
-    @DisplayName("ORDER_DELIVERED → publica en exchange con routing key PUSH")
+    @DisplayName("ORDER_DELIVERED â†’ publica en exchange con routing key PUSH")
     void orderDelivered_publicaEnPushQueue() throws Exception {
         // Arrange
         OrderDeliveredPayload payload = new OrderDeliveredPayload("D-002", "Laura", Instant.now());
@@ -98,7 +98,7 @@ class NotificationRouterServiceTest {
     }
 
     @Test
-    @DisplayName("DRIVER_ASSIGNED → no publica ninguna notificación")
+    @DisplayName("DRIVER_ASSIGNED â†’ no publica ninguna notificaciÃ³n")
     void driverAssigned_noPublicaNada() throws Exception {
         // Arrange
         OrderEventEnvelope envelope = new OrderEventEnvelope(
@@ -114,7 +114,7 @@ class NotificationRouterServiceTest {
     }
 
     @Test
-    @DisplayName("DELIVERY_STARTED → no publica ninguna notificación")
+    @DisplayName("DELIVERY_STARTED â†’ no publica ninguna notificaciÃ³n")
     void deliveryStarted_noPublicaNada() throws Exception {
         // Arrange
         OrderEventEnvelope envelope = new OrderEventEnvelope(
@@ -130,11 +130,11 @@ class NotificationRouterServiceTest {
     }
 
     @Test
-    @DisplayName("DRIVER_ARRIVING → el NotificationCommand contiene el orderId correcto")
+    @DisplayName("DRIVER_ARRIVING â†’ el NotificationCommand contiene el orderId correcto")
     void driverArriving_comandoContieneOrderId() throws Exception {
         // Arrange
         String orderId = "order-999";
-        DriverArrivingPayload payload = new DriverArrivingPayload("D-003", "Andrés", "llegando ahora");
+        DriverArrivingPayload payload = new DriverArrivingPayload("D-003", "AndrÃ©s", "llegando ahora");
         OrderEventEnvelope envelope = new OrderEventEnvelope(
                 "evt-5", orderId, OrderEventType.DRIVER_ARRIVING,
                 Instant.now(), objectMapper.writeValueAsString(payload)
@@ -151,3 +151,4 @@ class NotificationRouterServiceTest {
         assertThat(commandJson).contains(orderId);
     }
 }
+

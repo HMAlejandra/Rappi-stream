@@ -4,7 +4,7 @@ import com.rappistream.common.commands.OrderCreatedCommand;
 import com.rappistream.orderprocessor.domain.model.Pedido;
 import com.rappistream.orderprocessor.domain.port.OrderEventPublisherPort;
 import com.rappistream.orderprocessor.domain.port.OrderRepositoryPort;
-import com.rappistream.orderprocessor.domain.strategy.DriverAssignmentStrategy;
+import com.rappistream.orderprocessor.service.strategy.DriverAssignmentStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -12,10 +12,10 @@ import org.springframework.stereotype.Service;
 
 /**
  * Orquesta el procesamiento de un pedido.
- * Depende solo de interfaces (DIP) — no conoce Kafka, JPA ni RoundRobin.
+ * Depende solo de interfaces (DIP) â€” no conoce Kafka, JPA ni RoundRobin.
  *
- * Flujo: guardar → publicarOrderCreated → asignar repartidor
- *        → actualizar → publicarDriverAssigned
+ * Flujo: guardar â†’ publicarOrderCreated â†’ asignar repartidor
+ *        â†’ actualizar â†’ publicarDriverAssigned
  */
 @Service
 public class OrderProcessorService {
@@ -38,7 +38,7 @@ public class OrderProcessorService {
     }
 
     public void procesarComando(OrderCreatedCommand comando) {
-        log.info("[order_processor] Procesando comando — orderId={} customer='{}'",
+        log.info("[order_processor] Procesando comando â€” orderId={} customer='{}'",
                 comando.orderId(), comando.customerName());
 
         Pedido pedido = new Pedido(comando.orderId(), comando.customerName(),
@@ -55,11 +55,12 @@ public class OrderProcessorService {
         }
 
         estrategiaAsignacion.asignar(pedido);
-        log.info("[order_processor] Repartidor asignado — orderId={} driverId='{}' driverName='{}'",
+        log.info("[order_processor] Repartidor asignado â€” orderId={} driverId='{}' driverName='{}'",
                 pedido.getId(), pedido.getDriverId(), pedido.getDriverName());
 
         repositorio.actualizar(pedido);
         publicador.publicarDriverAssigned(pedido);
-        log.info("[order_processor] DRIVER_ASSIGNED publicado en Kafka — orderId={}", pedido.getId());
+        log.info("[order_processor] DRIVER_ASSIGNED publicado en Kafka â€” orderId={}", pedido.getId());
     }
 }
+

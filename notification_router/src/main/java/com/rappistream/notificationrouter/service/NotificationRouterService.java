@@ -4,7 +4,7 @@ import com.rappistream.common.commands.NotificationCommand;
 import com.rappistream.common.enums.NotificationType;
 import com.rappistream.common.events.OrderEventEnvelope;
 import com.rappistream.notificationrouter.config.RabbitMqConfig;
-import com.rappistream.notificationrouter.application.NotificationStrategy;
+import com.rappistream.notificationrouter.service.NotificationStrategy;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
